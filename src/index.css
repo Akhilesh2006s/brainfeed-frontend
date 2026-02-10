@@ -105,15 +105,11 @@
   }
 
   .article-card {
-    @apply group cursor-pointer;
+    @apply cursor-pointer;
   }
 
   .article-card-image {
     @apply overflow-hidden;
-  }
-
-  .article-card-image img {
-    @apply transition-transform duration-500 group-hover:scale-105;
   }
 
   .category-badge {

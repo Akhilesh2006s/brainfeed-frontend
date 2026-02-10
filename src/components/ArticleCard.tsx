@@ -9,12 +9,12 @@ interface ArticleCardProps {
 
 const ArticleCard = ({ image, category, title, date, excerpt, size = "default" }: ArticleCardProps) => {
   return (
-    <article className="article-card">
+    <article className="article-card group">
       <div className="article-card-image rounded-sm">
         <img
           src={image}
           alt={title}
-          className={`w-full object-cover ${size === "large" ? "h-64" : "h-48"}`}
+          className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${size === "large" ? "h-64" : "h-48"}`}
           loading="lazy"
         />
       </div>
