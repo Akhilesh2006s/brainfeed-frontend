@@ -1,3 +1,5 @@
+import { motion } from "framer-motion";
+
 interface ArticleCardProps {
   image: string;
   category: string;
@@ -9,28 +11,34 @@ interface ArticleCardProps {
 
 const ArticleCard = ({ image, category, title, date, excerpt, size = "default" }: ArticleCardProps) => {
   return (
-    <article className="article-card group">
-      <div className="article-card-image rounded-sm">
+    <motion.article
+      className="article-card group"
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="article-card-image">
         <img
           src={image}
           alt={title}
-          className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${size === "large" ? "h-64" : "h-48"}`}
+          className={`w-full object-cover transition-transform duration-700 group-hover:scale-105 ${size === "large" ? "h-72" : "h-52"}`}
           loading="lazy"
         />
       </div>
-      <div className="mt-3">
+      <div className="mt-4">
         <span className="category-badge">{category}</span>
-        <h3 className={`font-serif font-bold text-foreground mt-1 leading-snug hover:text-accent transition-colors ${
-          size === "large" ? "text-xl" : "text-base"
+        <h3 className={`font-serif text-foreground mt-2 leading-snug hover:text-accent transition-colors duration-300 ${
+          size === "large" ? "text-xl" : "text-lg"
         }`}>
           {title}
         </h3>
         {excerpt && (
-          <p className="mt-2 text-sm text-muted-foreground line-clamp-2 font-sans">{excerpt}</p>
+          <p className="mt-2.5 text-sm text-muted-foreground line-clamp-2 font-sans leading-relaxed">{excerpt}</p>
         )}
-        <time className="mt-2 text-xs text-muted-foreground block font-sans">{date}</time>
+        <time className="mt-3 text-xs text-muted-foreground/70 block font-sans tracking-wide">{date}</time>
       </div>
-    </article>
+    </motion.article>
   );
 };
 

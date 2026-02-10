@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import ArticleCard from "./ArticleCard";
 import news1 from "@/assets/news-1.jpg";
 import news2 from "@/assets/news-2.jpg";
@@ -21,7 +22,7 @@ const articles = [
   {
     image: news3,
     category: "News",
-    title: "Rashtriya Military Schools Admission 2026: Class 6, 9 Result, Interview Call Letter Released",
+    title: "Rashtriya Military Schools Admission 2026: Class 6, 9 Result Released",
     date: "February 10, 2026",
     excerpt: "Results for entrance examinations and interview call letters are now available online.",
   },
@@ -29,10 +30,17 @@ const articles = [
 
 const LatestNews = () => {
   return (
-    <section className="py-12">
+    <section className="py-16 lg:py-20">
       <div className="container">
-        <h2 className="section-title">Latest News</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
+          <h2 className="section-title">Latest News</h2>
+        </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 mt-10">
           {articles.map((article, i) => (
             <ArticleCard key={i} {...article} />
           ))}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, ShoppingCart, Menu, X, User } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Menu, X } from "lucide-react";
 import logo from "@/assets/logo-brainfeed.png";
 
 const navItems = [
@@ -15,40 +16,47 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="bg-card border-b border-border sticky top-0 z-50">
-      <div className="container flex items-center justify-between py-4">
-        {/* Logo */}
+    <motion.header
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+      className="bg-card/95 backdrop-blur-lg border-b border-border/60 sticky top-0 z-50"
+    >
+      <div className="container flex items-center justify-between py-5">
         <a href="#" className="flex-shrink-0">
-          <img src={logo} alt="Brainfeed Magazine" className="h-12" />
+          <img src={logo} alt="Brainfeed Magazine" className="h-11" />
         </a>
 
-        {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-8">
-          {navItems.map((item) => (
-            <a
+        <nav className="hidden lg:flex items-center gap-10">
+          {navItems.map((item, i) => (
+            <motion.a
               key={item.label}
               href={item.href}
-              className="text-sm font-semibold uppercase tracking-wide text-foreground hover:text-accent transition-colors"
+              className="text-[13px] font-medium uppercase tracking-widest text-foreground/70 hover:text-accent transition-colors duration-300"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + i * 0.05 }}
             >
               {item.label}
-            </a>
+            </motion.a>
           ))}
         </nav>
 
-        {/* Right icons */}
-        <div className="flex items-center gap-4">
-          <button className="text-foreground hover:text-accent transition-colors">
-            <Search className="h-5 w-5" />
-          </button>
-          <button className="text-foreground hover:text-accent transition-colors hidden sm:block">
-            <User className="h-5 w-5" />
-          </button>
-          <button className="text-foreground hover:text-accent transition-colors hidden sm:block relative">
-            <ShoppingCart className="h-5 w-5" />
-            <span className="absolute -top-1.5 -right-1.5 bg-accent text-accent-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
-              0
-            </span>
-          </button>
+        <div className="flex items-center gap-5">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            className="text-foreground/60 hover:text-accent transition-colors"
+          >
+            <Search className="h-[18px] w-[18px]" />
+          </motion.button>
+          <motion.a
+            href="#"
+            className="hidden sm:inline-flex items-center gap-2 bg-accent text-accent-foreground px-5 py-2 text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-accent/90 transition-colors"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            Subscribe
+          </motion.a>
           <button
             className="lg:hidden text-foreground"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -58,23 +66,33 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile Nav */}
-      {mobileOpen && (
-        <nav className="lg:hidden border-t border-border bg-card">
-          <div className="container py-4 flex flex-col gap-3">
-            {navItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="text-sm font-semibold uppercase tracking-wide text-foreground hover:text-accent transition-colors py-2 border-b border-border last:border-0"
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
-        </nav>
-      )}
-    </header>
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.nav
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="lg:hidden border-t border-border/60 bg-card overflow-hidden"
+          >
+            <div className="container py-6 flex flex-col gap-1">
+              {navItems.map((item, i) => (
+                <motion.a
+                  key={item.label}
+                  href={item.href}
+                  className="text-sm font-medium text-foreground/70 hover:text-accent transition-colors py-3 border-b border-border/30 last:border-0"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  {item.label}
+                </motion.a>
+              ))}
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
+    </motion.header>
   );
 };
 

@@ -76,10 +76,16 @@ const Index = () => {
       <main>
         <HeroSection />
         <LatestNews />
-        <CategorySection title="Expert View" articles={expertViewArticles} />
+        <div className="border-t border-border/50">
+          <CategorySection title="Expert View" articles={expertViewArticles} />
+        </div>
         <MagazineSection />
-        <CategorySection title="Technology" articles={technologyArticles} />
-        <CategorySection title="Parenting" articles={parentingArticles} />
+        <div className="border-t border-border/50">
+          <CategorySection title="Technology" articles={technologyArticles} />
+        </div>
+        <div className="border-t border-border/50">
+          <CategorySection title="Parenting" articles={parentingArticles} />
+        </div>
         <Newsletter />
       </main>
       <Footer />
