@@ -3,3 +3,7 @@ builder = "NIXPACKS"
 
 [deploy]
 startCommand = "node index.js"
+
+[variables]
+NPM_CONFIG_PRODUCTION = "false"
+RAILWAY_ENVIRONMENT = "production"
