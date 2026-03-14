@@ -14,8 +14,9 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: "https://brainfeed-backend-production-f9a0.up.railway.app",
         changeOrigin: true,
+        secure: true,
       },
     },
   },
