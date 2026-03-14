@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm install --production=false"]
 
 [phases.build]
 cmds = []
@@ -12,3 +12,4 @@ cmd = "node index.js"
 
 [variables]
 NPM_CONFIG_PRODUCTION = "false"
+NODE_ENV = "production"
