@@ -11,6 +11,11 @@
   "packageManager": "npm@9.0.0",
   "scripts": {
     "start": "node index.js",
+    "dev": "node index.js",
+    "build": "echo 'No build step required'"
+  },
+  "scripts": {
+    "start": "node index.js",
     "dev": "node index.js"
   },
   "dependencies": {

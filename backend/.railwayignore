@@ -1,3 +1,5 @@
 bun.lockb
 frontend/
 *.lockb
+../bun.lockb
+../../bun.lockb
