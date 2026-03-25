@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,14 +9,9 @@ import mainCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM.jpeg";
 import primary2Cover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (1).jpeg";
 import primary1Cover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (2).jpeg";
 import juniorCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.31 AM.jpeg";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
-const stats = [
-  { value: "60,000+", label: "Schools Reached", icon: School },
-  { value: "3 Lakh+", label: "School Leaders & Educators", icon: Users },
-  { value: "1,75,000", label: "Subscribers", icon: BookOpen },
-  { value: "45+", label: "Educational Conferences", icon: Award },
-  { value: "12,000+", label: "Leaders Recognised", icon: Sparkles },
-];
+const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 const editions = [
   {
@@ -60,36 +56,150 @@ const editions = [
   },
 ];
 
+type AboutPage = {
+  title: string;
+  slug: string;
+  content: string;
+  heroImageUrl?: string;
+  heroImageAlt?: string;
+  aboutCovers?: {
+    main?: string;
+    primary2?: string;
+    primary1?: string;
+    junior?: string;
+  };
+};
+
 const About = () => {
+  const [aboutPage, setAboutPage] = useState<AboutPage | null>(null);
+  const { settings } = useSiteSettings();
+
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document
+      .querySelector('meta[name="description"]')
+      ?.getAttribute("content");
+
+    document.title = "Education Articles & Insights | Brainfeed Magazine";
+
+    let metaEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!metaEl) {
+      metaEl = document.createElement("meta");
+      metaEl.name = "description";
+      document.head.appendChild(metaEl);
+    }
+    metaEl.content =
+      "Explore expert articles, insights, and trends shaping the future of education and EdTech in India.";
+
+    return () => {
+      document.title = originalTitle;
+      if (metaEl && originalDescription !== null && originalDescription !== undefined) {
+        metaEl.content = originalDescription;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/pages/slug/about`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: AboutPage | null) => {
+        if (data) setAboutPage(data);
+      })
+      .catch(() => {
+        // ignore, fall back to static copy
+      });
+  }, []);
+
+  const aboutSettings = settings?.about || {};
+
+  const heroEyebrow = aboutSettings.heroEyebrow || "Knowing Brainfeed";
+  const heroTitle =
+    aboutSettings.heroTitle ||
+    "Empowering children in their journey of literacy, numeracy and beyond.";
+  const heroBody =
+    aboutSettings.heroBody ||
+    "Since 2013 we have been working with schools, educators and childhood advocacy organisations to keep the reading habit alive among the growing minds that are the destiny of our nation tomorrow.";
+
+  const stats = [
+    { value: aboutSettings.stat1Value || "60,000+", label: aboutSettings.stat1Label || "Schools Reached", icon: School },
+    {
+      value: aboutSettings.stat2Value || "3 Lakh+",
+      label: aboutSettings.stat2Label || "School Leaders & Educators",
+      icon: Users,
+    },
+    {
+      value: aboutSettings.stat3Value || "1,75,000",
+      label: aboutSettings.stat3Label || "Subscribers",
+      icon: BookOpen,
+    },
+    {
+      value: aboutSettings.stat4Value || "45+",
+      label: aboutSettings.stat4Label || "Educational Conferences",
+      icon: Award,
+    },
+    {
+      value: aboutSettings.stat5Value || "12,000+",
+      label: aboutSettings.stat5Label || "Leaders Recognised",
+      icon: Sparkles,
+    },
+  ];
+
+  const conferencesBody =
+    aboutSettings.conferencesBody ||
+    "Our educational conferences and expos have seen active participation from 8,000+ educational leaders and 250+ leading brands. Since 2013 we have organised 45+ conferences — a space for school leaders and educators to share ideas, identify trends and network with peers.";
+
+  const awardsBody =
+    aboutSettings.awardsBody ||
+    "Brainfeed has recognised the contribution of over 12,000 leaders, educators, and companies in the educational products and services segment, conferring them with respective awards for excellence and innovation.";
+
+  const ctaTitle =
+    aboutSettings.ctaTitle ||
+    "Ten years and still counting — trusted by readers who swear by our objectivity and quality.";
+
   return (
     <div className="min-h-screen bg-background">
       <TopBar />
       <Header />
 
       <main>
-        {/* Hero */}
+        {/* Hero with right image */}
         <section className="border-b border-border/60 bg-secondary/20">
           <div className="container py-12 md:py-16">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-3xl"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-3">
-                Knowing Brainfeed
-              </p>
-              <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-foreground leading-tight">
-                Empowering children in their journey of literacy, numeracy and
-                beyond.
-              </h1>
-              <p className="mt-5 text-base md:text-lg text-muted-foreground font-sans leading-relaxed">
-                Since 2013 we have been working with schools, educators and
-                childhood advocacy organisations to keep the reading habit alive
-                among the growing minds that are the destiny of our nation
-                tomorrow.
-              </p>
-            </motion.div>
+            <div className="grid gap-8 md:grid-cols-[minmax(0,3fr)_minmax(0,2.5fr)] items-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="max-w-3xl"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-3">
+                  {heroEyebrow}
+                </p>
+                <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-foreground leading-tight">
+                  {heroTitle}
+                </h1>
+                <p className="mt-5 text-base md:text-lg text-muted-foreground font-sans leading-relaxed">
+                  {heroBody}
+                </p>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.7, delay: 0.15 }}
+                className="relative w-full h-full"
+              >
+                <div className="relative w-full max-w-xl ml-auto">
+                  <div className="aspect-[4/3] rounded-3xl overflow-hidden border border-border/70 bg-muted shadow-xl shadow-black/10">
+                    <img
+                      src={aboutSettings.heroImageUrl || aboutPage?.heroImageUrl || mainCover}
+                      alt={aboutSettings.heroImageAlt || aboutPage?.heroImageAlt || "Brainfeed magazine covers"}
+                      className="w-full h-full object-cover object-center"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </section>
 
@@ -98,18 +208,27 @@ const About = () => {
           <div className="container">
             <ScrollReveal direction="up" once>
               <div className="max-w-3xl mx-auto text-center">
-                <p className="font-serif text-xl md:text-2xl text-foreground leading-relaxed">
-                  Brainfeed is an educational media house empowering children in
-                  their journey of childhood, literacy and numeracy development —
-                  and helping educators teach out-of-curriculum skills and
-                  concepts.
-                </p>
-                <p className="mt-6 text-muted-foreground font-sans leading-relaxed">
-                  Our children's editions ignite young minds and nurture
-                  curiosity with content that raises questions and stimulates
-                  interest. The educator edition connects thousands of school
-                  leaders with objective insights to see what's now and next.
-                </p>
+                {aboutPage ? (
+                  <div
+                    className="prose prose-neutral dark:prose-invert max-w-none font-sans text-muted-foreground leading-relaxed [&_h2]:font-serif [&_h2]:text-foreground"
+                    dangerouslySetInnerHTML={{ __html: aboutPage.content }}
+                  />
+                ) : (
+                  <>
+                    <p className="font-serif text-xl md:text-2xl text-foreground leading-relaxed">
+                      Brainfeed is an educational media house empowering children in
+                      their journey of childhood, literacy and numeracy development —
+                      and helping educators teach out-of-curriculum skills and
+                      concepts.
+                    </p>
+                    <p className="mt-6 text-muted-foreground font-sans leading-relaxed">
+                      Our children's editions ignite young minds and nurture
+                      curiosity with content that raises questions and stimulates
+                      interest. The educator edition connects thousands of school
+                      leaders with objective insights to see what's now and next.
+                    </p>
+                  </>
+                )}
               </div>
             </ScrollReveal>
           </div>
@@ -152,58 +271,74 @@ const About = () => {
               </p>
             </ScrollReveal>
 
-            <div className="space-y-8 md:space-y-12">
+            <div className="grid gap-8 md:gap-10 md:grid-cols-2 lg:grid-cols-3">
               {editions.map((edition, i) => (
                 <ScrollReveal
                   key={edition.title}
-                  direction={i % 2 === 0 ? "left" : "right"}
+                  direction="up"
                   delay={0.05 * i}
                   once
                 >
-                  <article className="glass-card overflow-hidden flex flex-col md:flex-row gap-0">
-                    <div className="md:w-1/3 min-h-[220px] md:min-h-[280px] flex items-center justify-center bg-secondary/50 overflow-hidden shrink-0">
+                  <article className="glass-card h-full flex flex-col overflow-hidden">
+                    <div className="w-full aspect-[3/4] bg-secondary/40 flex items-center justify-center overflow-hidden">
                       {edition.title === "Brainfeed Magazine" ? (
                         <img
-                          src={mainCover}
+                          src={
+                            aboutSettings.aboutCoverMain ||
+                            aboutPage?.aboutCovers?.main ||
+                            mainCover
+                          }
                           alt="Brainfeed Magazine cover"
-                          className="w-full h-full min-h-[220px] md:min-h-[280px] object-cover object-top"
+                          className="w-full h-full object-cover object-top"
                           loading="lazy"
                         />
                       ) : edition.title === "Brainfeed Primary 2" ? (
                         <img
-                          src={primary2Cover}
+                          src={
+                            aboutSettings.aboutCoverPrimary2 ||
+                            aboutPage?.aboutCovers?.primary2 ||
+                            primary2Cover
+                          }
                           alt="Brainfeed Primary 2 magazine cover"
-                          className="w-full h-full min-h-[220px] md:min-h-[280px] object-cover object-top"
+                          className="w-full h-full object-cover object-top"
                           loading="lazy"
                         />
                       ) : edition.title === "Brainfeed Primary 1" ? (
                         <img
-                          src={primary1Cover}
+                          src={
+                            aboutSettings.aboutCoverPrimary1 ||
+                            aboutPage?.aboutCovers?.primary1 ||
+                            primary1Cover
+                          }
                           alt="Brainfeed Primary 1 magazine cover"
-                          className="w-full h-full min-h-[220px] md:min-h-[280px] object-cover object-top"
+                          className="w-full h-full object-cover object-top"
                           loading="lazy"
                         />
                       ) : edition.title === "Brainfeed Junior" ? (
                         <img
-                          src={juniorCover}
+                          src={
+                            aboutSettings.aboutCoverJunior ||
+                            aboutPage?.aboutCovers?.junior ||
+                            juniorCover
+                          }
                           alt="Brainfeed Junior magazine cover"
-                          className="w-full h-full min-h-[220px] md:min-h-[280px] object-cover object-top"
+                          className="w-full h-full object-cover object-top"
                           loading="lazy"
                         />
                       ) : (
-                        <div className="p-8 md:p-10">
+                        <div className="p-10">
                           <edition.icon className="h-14 w-14 md:h-16 md:w-16 text-accent" />
                         </div>
                       )}
                     </div>
-                    <div className="md:w-2/3 p-6 sm:p-8 md:p-10 flex flex-col justify-center">
+                    <div className="p-5 sm:p-6 md:p-7 flex flex-col flex-1">
                       <span className="text-[11px] font-semibold uppercase tracking-widest text-accent">
                         {edition.subtitle}
                       </span>
-                      <h3 className="font-serif text-xl md:text-2xl text-foreground mt-2">
+                      <h3 className="font-serif text-lg md:text-xl text-foreground mt-2">
                         {edition.title}
                       </h3>
-                      <p className="mt-4 text-muted-foreground font-sans leading-relaxed">
+                      <p className="mt-3 text-sm text-muted-foreground font-sans leading-relaxed">
                         {edition.description}
                       </p>
                     </div>
@@ -228,11 +363,7 @@ const About = () => {
                     Conferences & expos
                   </h3>
                   <p className="mt-3 text-muted-foreground font-sans leading-relaxed">
-                    Our educational conferences and expos have seen active
-                    participation from 8,000+ educational leaders and 250+
-                    leading brands. Since 2013 we have organised 45+ conferences
-                    — a space for school leaders and educators to share ideas,
-                    identify trends and network with peers.
+                    {conferencesBody}
                   </p>
                 </div>
               </ScrollReveal>
@@ -243,10 +374,7 @@ const About = () => {
                     Awards
                   </h3>
                   <p className="mt-3 text-muted-foreground font-sans leading-relaxed">
-                    Brainfeed has recognised the contribution of over 12,000
-                    leaders, educators, and companies in the educational
-                    products and services segment, conferring them with
-                    respective awards for excellence and innovation.
+                    {awardsBody}
                   </p>
                 </div>
               </ScrollReveal>
@@ -260,11 +388,10 @@ const About = () => {
             <ScrollReveal direction="up" once>
               <div className="max-w-2xl mx-auto text-center">
                 <h2 className="font-serif text-2xl md:text-3xl text-foreground">
-                  Ten years and still counting — trusted by readers who swear by
-                  our objectivity and quality.
+                  {ctaTitle}
                 </h2>
                 <motion.a
-                  href="/#news"
+                  href="/subscribe"
                   className="inline-flex items-center gap-2 mt-8 bg-accent text-accent-foreground px-8 py-4 text-sm font-semibold uppercase tracking-widest rounded-full hover:bg-accent/90 transition-colors"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}

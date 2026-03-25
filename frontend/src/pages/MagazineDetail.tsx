@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import ScrollReveal from "@/components/ScrollReveal";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import mainCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM.jpeg";
 import juniorCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (1).jpeg";
 import primaryICover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (2).jpeg";
@@ -81,6 +82,7 @@ const MagazineDetail = () => {
   const { id } = useParams<{ id: string }>();
   const magazine = (id && MAGAZINES[id]) || MAGAZINES.main;
   const { addItem } = useCart();
+  const { settings } = useSiteSettings();
   const [quantity, setQuantity] = useState(1);
 
   const handleAddToCart = () => {
@@ -94,6 +96,15 @@ const MagazineDetail = () => {
       quantity,
     );
   };
+
+  const pageUrl = typeof window !== "undefined" ? window.location.href : "";
+  const shareUrlBase = encodeURIComponent(pageUrl);
+  const shareText = magazine.name;
+  const fbHref = `https://www.facebook.com/sharer/sharer.php?u=${shareUrlBase}`;
+  const twHref = `https://twitter.com/intent/tweet?url=${shareUrlBase}&text=${encodeURIComponent(shareText)}`;
+  const liHref = `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrlBase}`;
+  const mailHref = `mailto:?subject=${encodeURIComponent(shareText)}&body=${shareUrlBase}`;
+  const igHref = settings?.footer?.social?.instagram || "https://www.instagram.com/";
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,7 +149,7 @@ const MagazineDetail = () => {
             </ScrollReveal>
 
             <ScrollReveal direction="up" once>
-              <div className="space-y-5">
+                <div className="space-y-5">
                 <div>
                   <p className="text-2xl md:text-3xl font-semibold text-foreground">
                     {magazine.priceLabel || formatRupees(magazine.price)}
@@ -194,21 +205,54 @@ const MagazineDetail = () => {
                   </div>
                 </div>
 
-                <div className="border-t border-border/40 pt-4 mt-4">
+                <div className="border-t border-border/40 pt-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">
                     Share
                   </p>
                   <div className="flex gap-3 text-muted-foreground">
-                    {[Facebook, Twitter, Instagram, Linkedin, Mail].map((Icon, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
-                        aria-label="Share"
-                      >
-                        <Icon className="h-4 w-4" />
-                      </button>
-                    ))}
+                    <a
+                      href={fbHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                      aria-label="Share on Facebook"
+                    >
+                      <Facebook className="h-4 w-4" />
+                    </a>
+                    <a
+                      href={twHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                      aria-label="Share on Twitter"
+                    >
+                      <Twitter className="h-4 w-4" />
+                    </a>
+                    <a
+                      href={igHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                      aria-label="Open Instagram"
+                    >
+                      <Instagram className="h-4 w-4" />
+                    </a>
+                    <a
+                      href={liHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                      aria-label="Share on LinkedIn"
+                    >
+                      <Linkedin className="h-4 w-4" />
+                    </a>
+                    <a
+                      href={mailHref}
+                      className="h-9 w-9 rounded-full border border-border/60 flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+                      aria-label="Share via email"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </a>
                   </div>
                 </div>
               </div>

@@ -50,7 +50,18 @@ const magazines: Magazine[] = [
   },
 ];
 
-const MagazineSection = () => {
+interface MagazineSectionProps {
+  magazineIds?: string[];
+}
+
+const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
+  const magazineById = new Map(magazines.map((m) => [m.id, m]));
+  const selected = (magazineIds || [])
+    .map((id) => magazineById.get(id))
+    .filter((m): m is Magazine => Boolean(m));
+  const fallback = magazines.filter((m) => !selected.some((s) => s.id === m.id));
+  const visibleMagazines = (selected.length ? [...selected, ...fallback] : magazines).slice(0, 4);
+
   return (
     <section className="py-10 sm:py-12 md:py-16 lg:py-24 bg-secondary/60">
       <div className="container">
@@ -71,7 +82,7 @@ const MagazineSection = () => {
         </ScrollReveal>
 
         <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-          {magazines.map((magazine, index) => (
+          {visibleMagazines.map((magazine, index) => (
             <ScrollReveal
               key={magazine.id}
               delay={0.06 * index}
@@ -105,15 +116,19 @@ const MagazineSection = () => {
                   {magazine.highlight}
                 </p>
 
-                <div className="mt-4 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/70">
+                <div className="mt-auto pt-4 flex w-full min-w-0 flex-nowrap items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.24em]">
                   <Link
                     to={`/magazine/${magazine.id}`}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground group-hover:text-accent transition-colors"
+                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-foreground transition-colors group-hover:text-accent"
                   >
                     View Issue
-                    <span className="text-base translate-y-[1px]">↗</span>
+                    <span className="inline text-base leading-none translate-y-[1px]" aria-hidden>
+                      ↗
+                    </span>
                   </Link>
-                  <span className="text-muted-foreground/70">Print &amp; Digital</span>
+                  <span className="shrink-0 whitespace-nowrap text-right text-muted-foreground/70">
+                    Print &amp; Digital
+                  </span>
                 </div>
               </div>
             </ScrollReveal>

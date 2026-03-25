@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScrollReveal from "@/components/ScrollReveal";
 import { Calendar, Clock } from "lucide-react";
+import { buildNewsPath } from "@/lib/seo";
+import { getCategoryTheme, getCategoryPillClass } from "@/lib/categoryTheme";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
@@ -18,12 +20,22 @@ type NewsPost = {
   imageAlt?: string;
   createdAt?: string;
   readTime?: string;
+  /** Custom document title for SEO (from admin) */
+  metaTitle?: string;
+  metaDescription?: string;
+  /** SEO / topic tags — rendered as meta keywords + optional on-page list */
+  tags?: string[];
+  publishedBy?: {
+    name?: string;
+    email?: string;
+  };
 };
 
 type NewsSummary = {
   id: string | number;
   title: string;
   date: string;
+  category?: string;
 };
 
 const formatDate = (iso?: string) => {
@@ -74,11 +86,18 @@ const NewsArticle = () => {
     const originalDescription = document
       .querySelector('meta[name="description"]')
       ?.getAttribute("content");
+    const existingKeywordsEl = document.querySelector('meta[name="keywords"]') as HTMLMetaElement | null;
+    const originalKeywords = existingKeywordsEl?.getAttribute("content");
 
-    const metaTitle = post.title ? `${post.title} | Brainfeed News` : "Brainfeed News";
-    document.title = metaTitle;
+    const customTitle = post.metaTitle?.trim();
+    const pageTitle = customTitle
+      ? `${customTitle} | Brainfeed News`
+      : post.title
+        ? `${post.title} | Brainfeed News`
+        : "Brainfeed News";
+    document.title = pageTitle;
 
-    const desc = post.excerpt || "";
+    const desc = (post.metaDescription || post.excerpt || "").trim();
     let metaEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
     if (!metaEl) {
       metaEl = document.createElement("meta");
@@ -89,10 +108,31 @@ const NewsArticle = () => {
       metaEl.content = desc;
     }
 
+    const tagList = Array.isArray(post.tags) ? post.tags.map((t) => String(t).trim()).filter(Boolean) : [];
+    const keywords = tagList.length ? tagList.join(", ") : "";
+    let keywordsMeta = existingKeywordsEl;
+    let createdKeywordsMeta = false;
+    if (keywords) {
+      if (!keywordsMeta) {
+        keywordsMeta = document.createElement("meta");
+        keywordsMeta.name = "keywords";
+        document.head.appendChild(keywordsMeta);
+        createdKeywordsMeta = true;
+      }
+      keywordsMeta.content = keywords;
+    }
+
     return () => {
       document.title = originalTitle;
       if (metaEl && originalDescription !== null && originalDescription !== undefined) {
         metaEl.content = originalDescription;
+      }
+      if (keywordsMeta) {
+        if (createdKeywordsMeta) {
+          keywordsMeta.remove();
+        } else if (originalKeywords !== null && originalKeywords !== undefined) {
+          keywordsMeta.setAttribute("content", originalKeywords);
+        }
       }
     };
   }, [post]);
@@ -103,13 +143,15 @@ const NewsArticle = () => {
       .then((data: any[]) => {
         const items = (Array.isArray(data) ? data : [])
           .slice(0, 5)
-          .map((a) => ({ id: a.id, title: a.title, date: a.date })) as NewsSummary[];
+          .map((a) => ({ id: a.id, title: a.title, date: a.date, category: a.category })) as NewsSummary[];
         setLatest(items);
       })
       .catch(() => setLatest([]));
   }, []);
 
   const imageSrc = post?.imageUrl?.trim() || "";
+
+  const categoryTheme = getCategoryTheme(post?.category || "");
 
   return (
     <div className="min-h-screen bg-background">
@@ -131,7 +173,11 @@ const NewsArticle = () => {
                 {post?.category && (
                   <>
                     <span className="mx-1">›</span>
-                    <span>{post.category}</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full ${categoryTheme.pillBg} ${categoryTheme.pillText} text-[10px] font-semibold uppercase tracking-[0.16em]`}
+                    >
+                      {post.category}
+                    </span>
                   </>
                 )}
               </nav>
@@ -150,20 +196,33 @@ const NewsArticle = () => {
                   </h1>
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground font-sans">
                     {post.category && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-semibold uppercase tracking-[0.16em]">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full ${categoryTheme.pillBg} ${categoryTheme.pillText} text-[10px] font-semibold uppercase tracking-[0.16em]`}
+                      >
                         {post.category}
                       </span>
                     )}
                     {post.createdAt && (
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5" />
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold text-[10px] ${categoryTheme.metaBg} ${categoryTheme.metaText}`}
+                      >
+                        <Calendar className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                         {formatDate(post.createdAt)}
                       </span>
                     )}
                     {post.readTime && (
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5" />
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold text-[10px] ${categoryTheme.metaBg} ${categoryTheme.metaText}`}
+                      >
+                        <Clock className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                         {post.readTime}
+                      </span>
+                    )}
+                    {(post.publishedBy?.name || post.publishedBy?.email) && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold text-[10px] ${categoryTheme.metaBg} ${categoryTheme.metaText}`}
+                      >
+                        By {post.publishedBy?.name?.trim() || post.publishedBy?.email}
                       </span>
                     )}
                   </div>
@@ -176,31 +235,51 @@ const NewsArticle = () => {
         {!loading && post && !notFound && (
           <section className="py-10 md:py-14">
             <div className="container grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
-              <ScrollReveal direction="up" once>
-                <article>
-                  {imageSrc && (
-                    <div className="mb-6 rounded-2xl overflow-hidden border border-border/60 bg-card">
-                      <img
-                        src={imageSrc}
-                        alt={post.imageAlt || post.title}
-                        className="w-full h-auto object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="news-article-body prose prose-sm sm:prose-base max-w-none text-foreground font-sans leading-relaxed">
-                    {post.content ? (
-                      <div
-                        className="space-y-4"
-                        dangerouslySetInnerHTML={{ __html: post.content }}
-                      />
-                    ) : (
-                      <p className="text-muted-foreground">
-                        Full article content will be available soon.
-                      </p>
-                    )}
+              <article>
+                {imageSrc && (
+                  <div
+                    className={`mb-6 rounded-2xl overflow-hidden border bg-card ${categoryTheme.imageWrap} ${categoryTheme.imageBorder}`}
+                  >
+                    <img
+                      src={imageSrc}
+                      alt={post.imageAlt || post.title}
+                      className="w-full h-auto object-contain"
+                      loading="eager"
+                      fetchPriority="high"
+                      decoding="async"
+                    />
                   </div>
-                </article>
-              </ScrollReveal>
+                )}
+                <div className="news-article-body prose prose-sm sm:prose-base max-w-none text-foreground font-sans leading-relaxed">
+                  {post.content ? (
+                    <div
+                      className="[&_p]:my-4 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p:empty]:block [&_p:empty]:h-6 [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:mt-5 [&_h3]:mb-2 [&_h4]:mt-4 [&_h4]:mb-2 [&_ul]:my-4 [&_ol]:my-4 [&_li]:my-1 [&_blockquote]:my-4 [&_.editor-inline-figure]:my-6 [&_.editor-inline-img]:rounded-xl [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:max-w-full [&_.editor-inline-img]:w-full"
+                      dangerouslySetInnerHTML={{ __html: post.content }}
+                    />
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Full article content will be available soon.
+                    </p>
+                  )}
+                </div>
+                {Array.isArray(post.tags) && post.tags.length > 0 && (
+                  <div className="mt-8 pt-6 border-t border-border/60" aria-label="Article topics">
+                    <h2 className="font-serif text-sm uppercase tracking-[0.22em] text-muted-foreground mb-3">
+                      Tags
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {post.tags.map((tag, i) => (
+                        <span
+                          key={`${tag}-${i}`}
+                          className="inline-flex items-center rounded-md border border-border/70 bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </article>
 
               <ScrollReveal direction="up" once>
                 <aside className="space-y-8">
@@ -210,9 +289,18 @@ const NewsArticle = () => {
                     </h2>
                     <div className="space-y-3 text-sm font-sans">
                       {latest.map((item) => (
-                        <div key={item.id} className="border-b border-border/40 pb-2 last:border-b-0">
+                        <div key={item.id} className="border-b border-border/40 pb-3 last:border-b-0">
+                          {item.category && (
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.16em] mb-2 ${getCategoryPillClass(
+                                item.category || ""
+                              )}`}
+                            >
+                              {item.category}
+                            </span>
+                          )}
                           <Link
-                            to={`/news/${item.id}`}
+                            to={buildNewsPath(item.title, item.id)}
                             className="block text-foreground hover:text-accent leading-snug"
                           >
                             {item.title}

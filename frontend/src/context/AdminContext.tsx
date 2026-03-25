@@ -1,10 +1,11 @@
 import { createContext, useContext, useMemo, useState, useEffect, type ReactNode } from "react";
+import { buildApiUrl } from "@/lib/apiUrl";
 
-const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 const STORAGE_KEY = "brainfeed_admin";
 
 type AdminUser = {
   id: string;
+  name?: string;
   email: string;
   role?: "admin" | "editor";
 };
@@ -38,7 +39,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
         return;
       }
-      fetch(`${API_BASE}/api/admin/me`, {
+      fetch(buildApiUrl("/admin/me"), {
         headers: { Authorization: `Bearer ${t}` },
       })
         .then((res) => (res.ok ? res.json() : null))
@@ -49,6 +50,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           }
           const current: AdminUser = {
             id: data.id || data._id,
+            name: data.name,
             email: data.email,
             role: data.role,
           };
@@ -68,7 +70,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/login`, {
+      const res = await fetch(buildApiUrl("/admin/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -78,6 +80,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       const { token: t, admin: adminData } = data;
       const current: AdminUser = {
         id: adminData?.id || adminData?._id,
+        name: adminData?.name,
         email: adminData?.email,
         role: adminData?.role,
       };

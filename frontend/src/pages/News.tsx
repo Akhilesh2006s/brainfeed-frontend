@@ -6,32 +6,33 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Search, Calendar, ArrowRight, Newspaper } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { buildNewsPath } from "@/lib/seo";
+import { getCategoryTheme as getNewsCategoryTheme } from "@/lib/categoryTheme";
 
 const newsCategorySlugToLabel: Record<string, string> = {
-  achievement: "Achievement",
-  "press-release": "Press Release",
-  career: "Career",
   education: "Education",
-  "institutional-profile": "Institutional Profile",
-  internship: "Internship",
-  jobs: "Jobs",
-  "science-environment": "Science & Environment",
+  policy: "Policy",
+  parenting: "Parenting",
   technology: "Technology",
   "expert-view": "Expert View",
+  "press-release": "Press Release",
 };
+
+const newsCategoryLabelToSlug: Record<string, string> = Object.entries(
+  newsCategorySlugToLabel
+).reduce((acc, [slug, label]) => {
+  acc[label] = slug;
+  return acc;
+}, {} as Record<string, string>);
 
 const newsCategories = [
   "All",
-  "Achievement",
-  "Press Release",
-  "Career",
   "Education",
-  "Institutional Profile",
-  "Internship",
-  "Jobs",
-  "Science & Environment",
-  "Technology",
+  "Policy",
+  "Parenting",
   "Expert View",
+  "Technology",
+  "Press Release",
 ];
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
@@ -55,7 +56,7 @@ function getArticleImageSrc(article: NewsArticle): string {
 }
 
 const News = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get("category");
   const initialCategory =
     categoryFromUrl && newsCategorySlugToLabel[categoryFromUrl]
@@ -64,6 +65,31 @@ const News = () => {
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState("");
   const [apiArticles, setApiArticles] = useState<NewsArticle[]>([]);
+
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document
+      .querySelector('meta[name="description"]')
+      ?.getAttribute("content");
+
+    document.title = "Education News India | Latest School & Exam Updates";
+
+    let metaEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!metaEl) {
+      metaEl = document.createElement("meta");
+      metaEl.name = "description";
+      document.head.appendChild(metaEl);
+    }
+    metaEl.content =
+      "Get the latest education news, board exam updates, results, and policy changes across India.";
+
+    return () => {
+      document.title = originalTitle;
+      if (metaEl && originalDescription !== null && originalDescription !== undefined) {
+        metaEl.content = originalDescription;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/articles`)
@@ -75,6 +101,10 @@ const News = () => {
   useEffect(() => {
     if (categoryFromUrl && newsCategorySlugToLabel[categoryFromUrl]) {
       setActiveCategory(newsCategorySlugToLabel[categoryFromUrl]);
+    } else if (!categoryFromUrl) {
+      // When there is no category query (e.g. user clicked "All News" in header),
+      // always reset the active filter back to "All".
+      setActiveCategory("All");
     }
   }, [categoryFromUrl]);
 
@@ -141,10 +171,29 @@ const News = () => {
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => setActiveCategory(cat)}
+                    onClick={() => {
+                      setActiveCategory(cat);
+                      if (cat === "All") {
+                        // Clear category from URL when "All" is selected
+                        setSearchParams((prev) => {
+                          const next = new URLSearchParams(prev);
+                          next.delete("category");
+                          return next;
+                        });
+                      } else {
+                        const slug = newsCategoryLabelToSlug[cat];
+                        if (slug) {
+                          setSearchParams((prev) => {
+                            const next = new URLSearchParams(prev);
+                            next.set("category", slug);
+                            return next;
+                          });
+                        }
+                      }
+                    }}
                     className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors ${
                       activeCategory === cat
-                        ? "bg-accent text-accent-foreground"
+                        ? `${getNewsCategoryTheme(cat).pillBg} ${getNewsCategoryTheme(cat).pillText}`
                         : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
                     }`}
                   >
@@ -179,19 +228,21 @@ const News = () => {
                       className="mb-12 md:mb-16"
                     >
                       <Link
-                        to={`/news/${featuredArticle.id}`}
+                        to={buildNewsPath(featuredArticle.title, featuredArticle.id)}
                         className="group block rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-xl hover:border-accent/30 transition-all duration-300"
                       >
                         <div className="grid md:grid-cols-2 gap-0">
-                          <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[320px]">
+                          <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[320px] bg-muted/40">
                             <img
                               src={getArticleImageSrc(featuredArticle)}
                               alt={featuredArticle.imageAlt || featuredArticle.title}
-                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                             />
                           </div>
                           <div className="p-6 sm:p-8 md:p-10 flex flex-col justify-center">
-                            <span className="inline-block px-2.5 py-1 rounded-full bg-accent/15 text-accent text-[10px] font-semibold uppercase tracking-wider mb-3">
+                            <span
+                              className={`inline-block px-2.5 py-1 rounded-full ${getNewsCategoryTheme(featuredArticle.category).pillBg} ${getNewsCategoryTheme(featuredArticle.category).pillText} text-[10px] font-semibold uppercase tracking-wider mb-3`}
+                            >
                               {featuredArticle.category}
                             </span>
                             <h2 className="font-serif text-2xl md:text-3xl text-foreground leading-tight group-hover:text-accent transition-colors">
@@ -200,12 +251,25 @@ const News = () => {
                             <p className="mt-3 text-muted-foreground font-sans leading-relaxed line-clamp-2">
                               {featuredArticle.excerpt}
                             </p>
-                            <div className="mt-5 flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="h-3.5 w-3.5" />
-                                {featuredArticle.date}
-                              </span>
-                              <span>{featuredArticle.readTime}</span>
+                            <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-sans">
+                              {(() => {
+                                const th = getNewsCategoryTheme(featuredArticle.category);
+                                return (
+                                  <>
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${th.metaBg} ${th.metaText}`}
+                                    >
+                                      <Calendar className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                                      {featuredArticle.date}
+                                    </span>
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2.5 py-1 font-semibold ${th.metaBg} ${th.metaText}`}
+                                    >
+                                      {featuredArticle.readTime}
+                                    </span>
+                                  </>
+                                );
+                              })()}
                             </div>
                             <span className="inline-flex items-center gap-1 mt-4 text-accent text-xs font-semibold uppercase tracking-wider group-hover:gap-2 transition-all">
                               Read more
@@ -239,16 +303,18 @@ const News = () => {
                         className="group"
                       >
                         <Link
-                          to={`/news/${post.id}`}
+                          to={buildNewsPath(post.title, post.id)}
                           className="block h-full rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-lg hover:border-accent/30 transition-all duration-300"
                         >
-                          <div className="relative overflow-hidden aspect-[16/10]">
+                          <div className="relative overflow-hidden aspect-[16/10] bg-muted/40">
                             <img
                               src={getArticleImageSrc(post)}
                               alt={post.imageAlt || post.title}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                             />
-                            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-background/90 text-[10px] font-semibold uppercase tracking-wider text-foreground">
+                            <span
+                              className={`absolute top-3 left-3 px-2.5 py-1 rounded-full ${getNewsCategoryTheme(post.category).overlayBg} ${getNewsCategoryTheme(post.category).overlayText} text-[10px] font-semibold uppercase tracking-wider`}
+                            >
                               {post.category}
                             </span>
                           </div>
@@ -260,11 +326,13 @@ const News = () => {
                               {post.excerpt}
                             </p>
                             <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground font-sans">
-                              <span className="flex items-center gap-1.5">
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${getNewsCategoryTheme(post.category).metaBg} ${getNewsCategoryTheme(post.category).metaText}`}>
                                 <Calendar className="h-3.5 w-3.5" />
                                 {post.date}
                               </span>
-                              <span>{post.readTime}</span>
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-1 ${getNewsCategoryTheme(post.category).metaBg} ${getNewsCategoryTheme(post.category).metaText}`}>
+                                {post.readTime}
+                              </span>
                             </div>
                             <span className="inline-flex items-center gap-1 mt-4 text-accent text-xs font-semibold uppercase tracking-wider group-hover:gap-2 transition-all">
                               Read more

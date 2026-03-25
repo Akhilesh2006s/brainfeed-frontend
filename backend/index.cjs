@@ -13,8 +13,10 @@ const User = require("./models/User.cjs");
 const Admin = require("./models/Admin.cjs");
 const Post = require("./models/Post.cjs");
 const Page = require("./models/Page.cjs");
+const Flipbook = require("./models/Flipbook.cjs");
 const Subscription = require("./models/Subscription.cjs");
 const Product = require("./models/Product.cjs");
+const SiteSettings = require("./models/SiteSettings.cjs");
 
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "brainfeed-jwt-secret-change-in-production";
@@ -54,6 +56,15 @@ const uploadProductImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: imageFilter,
 });
+const pdfFilter = (req, file, cb) => {
+  if (file.mimetype === "application/pdf") cb(null, true);
+  else cb(new Error("Only PDF files are allowed"), false);
+};
+const uploadFlipbookPdf = multer({
+  storage,
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter: pdfFilter,
+});
 
 function readArticles() {
   try {
@@ -79,7 +90,6 @@ app.set("trust proxy", 1);
 
 // ----- CORS (use cors package so preflight is always correct on Railway) -----
 const DEFAULT_ORIGINS = [
-  "https://brainfeed-frontend.vercel.app",
   "http://localhost:5173",
   "http://localhost:8080",
   "http://127.0.0.1:5173",
@@ -121,7 +131,7 @@ const mongoUri = (process.env.MONGO_URI || "").trim();
 
 // Root – so deployed URL works for quick checks (CORS applied by middleware)
 app.get("/", (req, res) => {
-  res.json({ ok: true, api: "Brainfeed API", health: "/api/health" });
+  res.json({ ok: true, api: "Brainfeed API", health: "/api/health", capabilities: "/api/capabilities" });
 });
 
 // Health check: MongoDB reachable + Cloudinary config (no auth required). Never throws 500.
@@ -157,23 +167,14 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-function startServer() {
-  const host = process.env.HOST || "0.0.0.0";
-  app.listen(PORT, host, () => {
-    console.log(`Brainfeed API running on http://${host}:${PORT}`);
-    if (isProduction && (!process.env.JWT_SECRET || process.env.JWT_SECRET === "brainfeed-jwt-secret-change-in-production")) {
-      console.warn("WARNING: Set JWT_SECRET in production (e.g. on Railway) for secure tokens.");
-    }
-    if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
-      console.warn("Admin login: ADMIN_EMAIL or ADMIN_PASSWORD not set in .env – admin login may fail.");
-    } else {
-      console.log("Admin login: credentials loaded from .env");
-    }
+/** Public: verify deployed API includes flipbooks (admin routes require auth). If this 404s, redeploy backend from latest `backend/` code. */
+app.get("/api/capabilities", (req, res) => {
+  res.json({
+    flipbooks: true,
+    adminFlipbooks: "/api/admin/flipbooks",
+    publicFlipbooks: "/api/flipbooks",
   });
-}
-
-// Start server immediately so Railway gets a response (required for "Application failed to respond")
-startServer();
+});
 
 // MongoDB: connect in background so app stays up even if DB is slow or temporarily down
 const mongooseOptions = {
@@ -241,6 +242,8 @@ async function adminAuthMiddleware(req, res, next) {
 
     req.adminId = admin._id.toString();
     req.adminRole = role;
+    req.adminEmail = admin.email || "";
+    req.adminName = getAdminDisplayName(admin);
     next();
   } catch (e) {
     console.error("Admin auth error:", e);
@@ -249,6 +252,20 @@ async function adminAuthMiddleware(req, res, next) {
 }
 
 const ADMIN_ROLES = ["admin", "editor"];
+
+function getAdminDisplayName(admin) {
+  const explicit = String(admin?.name || "").trim();
+  if (explicit) return explicit;
+  const local = String(admin?.email || "")
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .trim();
+  if (!local) return "Admin";
+  return local
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 function requireAdminRole(requiredRole) {
   return (req, res, next) => {
@@ -265,6 +282,122 @@ async function uploadToCloudinary(buffer, mimeType, folder) {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(dataUri, { folder }, (err, res) => (err ? reject(err) : resolve(res)));
   });
+}
+
+/** PDF / raw files — Cloudinary `raw` resource type */
+async function uploadPdfToCloudinary(buffer, mimeType, folder) {
+  const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload(
+      dataUri,
+      { folder, resource_type: "raw", use_filename: true, unique_filename: true },
+      (err, res) => (err ? reject(err) : resolve(res))
+    );
+  });
+}
+
+function getDefaultSiteSettings() {
+  return {
+    key: "default",
+    homeHero: {
+      eyebrow: "Since 2009 — Trusted by 40,000+ schools",
+      title: "Today's Readers are",
+      titleAccent: "Tomorrow's Leaders",
+      subtitle1: "India's premier educational monthly — nurturing 200,000+ young minds with five specialized publications.",
+      subtitle2:
+        "Brainfeed brings educators, parents and students one step closer—covering board exams, NEP 2020, classroom practices and wellbeing in a single, beautifully curated reading experience.",
+      backgroundImageUrl: "",
+    },
+    homeLayout: {
+      latestNewsFeaturedId: "",
+      latestNewsSideIds: [],
+      expertViewIds: [],
+      editorsPickIds: [],
+      technologyIds: [],
+      parentingIds: [],
+      latestMagazineIds: [],
+    },
+    topBar: {
+      links: [
+        { label: "Michampsindia", url: "https://michampsindia.com/" },
+        { label: "Higher Education Plus", url: "https://highereducationplus.com/" },
+        { label: "School Search", url: "https://brainfeedmagazine.com/schools-search/" },
+      ],
+      social: {
+        facebook: "https://www.facebook.com/brainfeededumag",
+        twitter: "https://twitter.com/brainfeededumag",
+        instagram: "https://www.instagram.com/brainfeededumag/",
+        linkedin: "https://www.linkedin.com/in/brainfeededumag/",
+        youtube: "https://www.youtube.com/@brainfeedmagazine",
+        email: "info@brainfeedmagazine.com",
+      },
+    },
+    footer: {
+      description: "India's premier education magazine empowering educators, parents, and students since 2010.",
+      email: "admin@brainfeedmagazine.com",
+      social: {
+        facebook: "https://www.facebook.com/brainfeededumag",
+        twitter: "https://twitter.com/brainfeededumag",
+        instagram: "https://www.instagram.com/brainfeededumag/",
+        linkedin: "https://www.linkedin.com/in/brainfeededumag/",
+        youtube: "https://www.youtube.com/@brainfeedmagazine",
+        email: "info@brainfeedmagazine.com",
+      },
+    },
+    about: {
+      heroEyebrow: "Knowing Brainfeed",
+      heroTitle: "Empowering children in their journey of literacy, numeracy and beyond.",
+      heroBody:
+        "Since 2013 we have been working with schools, educators and childhood advocacy organisations to keep the reading habit alive among the growing minds that are the destiny of our nation tomorrow.",
+      heroImageUrl: "",
+      heroImageAlt: "",
+      aboutCoverMain: "",
+      aboutCoverPrimary2: "",
+      aboutCoverPrimary1: "",
+      aboutCoverJunior: "",
+      stat1Value: "60,000+",
+      stat1Label: "Schools Reached",
+      stat2Value: "3 Lakh+",
+      stat2Label: "School Leaders & Educators",
+      stat3Value: "1,75,000",
+      stat3Label: "Subscribers",
+      stat4Value: "45+",
+      stat4Label: "Educational Conferences",
+      stat5Value: "12,000+",
+      stat5Label: "Leaders Recognised",
+      conferencesBody:
+        "Our educational conferences and expos have seen active participation from 8,000+ educational leaders and 250+ leading brands. Since 2013 we have organised 45+ conferences — a space for school leaders and educators to share ideas, identify trends and network with peers.",
+      awardsBody:
+        "Brainfeed has recognised the contribution of over 12,000 leaders, educators, and companies in the educational products and services segment, conferring them with respective awards for excellence and innovation.",
+      ctaTitle:
+        "Ten years and still counting — trusted by readers who swear by our objectivity and quality.",
+    },
+    contact: {
+      addressLines: [
+        "Kakani Edu Media Pvt Ltd",
+        "Plot No: 47, Rd Number 4A, adjacent to Bose Edifice,",
+        "Golden Tulip Estate, Raghavendra Colony, Hyderabad,",
+        "Telangana 500084",
+      ],
+      whatsapp: "918448737157",
+      phoneAlt: "",
+      emails: ["info@brainfeedmagazine.com", "kakani2406@gmail.com"],
+      regionTitle: "Punjab Region",
+      regionName: "Katyayani Singh",
+      regionWhatsapp: "918448737157",
+      regionEmail: "katyayanis2019@gmail.com",
+      mapUrl:
+        "https://www.google.com/maps?ll=17.473071,78.357614&z=22&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038",
+      mapEmbedUrl: "https://www.google.com/maps?q=17.473071,78.357614&z=22&output=embed",
+    },
+  };
+}
+
+async function getOrCreateSiteSettings() {
+  const existing = await SiteSettings.findOne({ key: "default" }).lean();
+  if (existing) return existing;
+  const created = await SiteSettings.create(getDefaultSiteSettings());
+  return created.toJSON();
 }
 
 app.post("/api/auth/signup", async (req, res) => {
@@ -365,7 +498,12 @@ app.post("/api/admin/login", async (req, res) => {
       // First-time login using ENV admin credentials creates a permanent admin user
       if (adminEnvEmail && adminEnvPassword && adminEnvEmail === adminEmail) {
         const hashed = await bcrypt.hash(adminEnvPassword, 10);
-        admin = await Admin.create({ email: adminEnvEmail, password: hashed, role: "admin" });
+        admin = await Admin.create({
+          name: getAdminDisplayName({ email: adminEnvEmail }),
+          email: adminEnvEmail,
+          password: hashed,
+          role: "admin",
+        });
       } else {
         return res.status(401).json({ error: "Invalid email or password" });
       }
@@ -423,12 +561,29 @@ app.get("/api/admin/users", adminAuthMiddleware, requireAdminRole("admin"), asyn
   }
 });
 
+// ----- Admin: website signup users (customers) -----
+app.get("/api/admin/signup-users", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim().toLowerCase();
+    const filter = {};
+    if (q) {
+      filter.$or = [{ email: { $regex: q, $options: "i" } }, { name: { $regex: q, $options: "i" } }];
+    }
+    const users = await User.find(filter).sort({ createdAt: -1 }).select("-password");
+    res.json(users);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load signup users" });
+  }
+});
+
 app.post("/api/admin/users", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
   try {
-    const { email, password, role } = req.body || {};
-    const trimmedEmail = String(email || "").trim().toLowerCase();
-    const trimmedPassword = String(password || "");
-    const trimmedRole = String(role || "editor").trim();
+    const body = req.body || {};
+    const rawName = body.name ?? body.displayName ?? body.fullName;
+    const trimmedName = String(rawName ?? "").trim();
+    const trimmedEmail = String(body.email || "").trim().toLowerCase();
+    const trimmedPassword = String(body.password || "");
+    const trimmedRole = String(body.role || "editor").trim();
     if (!trimmedEmail || !trimmedPassword) {
       return res.status(400).json({ error: "Email and password are required" });
     }
@@ -443,7 +598,13 @@ app.post("/api/admin/users", adminAuthMiddleware, requireAdminRole("admin"), asy
       return res.status(409).json({ error: "User with this email already exists" });
     }
     const hashed = await bcrypt.hash(trimmedPassword, 10);
-    const admin = await Admin.create({ email: trimmedEmail, password: hashed, role: trimmedRole });
+    const displayName = trimmedName || getAdminDisplayName({ email: trimmedEmail });
+    const admin = await Admin.create({
+      name: displayName,
+      email: trimmedEmail,
+      password: hashed,
+      role: trimmedRole,
+    });
     res.status(201).json(admin.toJSON());
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to create user" });
@@ -452,8 +613,17 @@ app.post("/api/admin/users", adminAuthMiddleware, requireAdminRole("admin"), asy
 
 app.patch("/api/admin/users/:id", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
   try {
-    const { email, password, role } = req.body || {};
+    const { name, email, password, role } = req.body || {};
+    const existing = await Admin.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "User not found" });
+
     const update = {};
+    if (name !== undefined) {
+      const t = String(name ?? "").trim();
+      const nextEmail =
+        email !== undefined ? String(email).trim().toLowerCase() : existing.email;
+      update.name = t || getAdminDisplayName({ email: nextEmail || existing.email });
+    }
     if (email !== undefined) {
       const trimmedEmail = String(email).trim().toLowerCase();
       if (!trimmedEmail) {
@@ -553,6 +723,102 @@ app.get("/api/products", async (req, res) => {
     res.status(500).json({ error: e.message || "Failed to load products" });
   }
 });
+
+// ----- Site settings (public) -----
+app.get("/api/site-settings", async (req, res) => {
+  try {
+    const settings = await getOrCreateSiteSettings();
+    res.json(settings);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load site settings" });
+  }
+});
+
+// ----- Site settings (admin) -----
+app.get("/api/admin/site-settings", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
+  try {
+    const settings = await getOrCreateSiteSettings();
+    res.json(settings);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load site settings" });
+  }
+});
+
+app.patch("/api/admin/site-settings", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const existing = await getOrCreateSiteSettings();
+    const update = {
+      homeHero: { ...(existing.homeHero || {}), ...(body.homeHero || {}) },
+      homeLayout: { ...(existing.homeLayout || {}), ...(body.homeLayout || {}) },
+      topBar: { ...(existing.topBar || {}), ...(body.topBar || {}) },
+      footer: { ...(existing.footer || {}), ...(body.footer || {}) },
+      contact: { ...(existing.contact || {}), ...(body.contact || {}) },
+      about: { ...(existing.about || {}), ...(body.about || {}) },
+    };
+    const saved = await SiteSettings.findOneAndUpdate({ key: "default" }, { $set: update }, { new: true, upsert: true });
+    res.json(saved.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to update site settings" });
+  }
+});
+
+// Upload hero background image from admin (returns Cloudinary URL)
+app.post(
+  "/api/admin/site-settings/hero-image",
+  adminAuthMiddleware,
+  requireAdminRole("admin"),
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Image file is required" });
+      }
+      const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-hero");
+      res.status(201).json({ url: r.secure_url });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to upload hero image" });
+    }
+  },
+);
+
+// Upload hero + covers for About page (admin)
+app.post(
+  "/api/admin/site-settings/about-image",
+  adminAuthMiddleware,
+  requireAdminRole("admin"),
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Image file is required" });
+      }
+      const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-about");
+      res.status(201).json({ url: r.secure_url });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to upload image" });
+    }
+  },
+);
+
+// Upload inline image for news/blog content editor (admin)
+app.post(
+  "/api/admin/posts/inline-image",
+  adminAuthMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Image file is required" });
+      }
+      const folder = "brainfeed-inline";
+      const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, folder);
+      res.status(201).json({ url: r.secure_url });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to upload image" });
+    }
+  },
+);
 
 // Admin products CRUD
 app.get("/api/admin/products", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
@@ -876,6 +1142,33 @@ app.get("/api/admin/backup", adminAuthMiddleware, async (req, res) => {
 
 // (gallery APIs were removed)
 
+function slugifyPost(text) {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "post";
+}
+
+/** Tags from multipart body: JSON array string or comma-separated; deduped, capped for SEO abuse. */
+function parsePostTags(raw) {
+  const MAX = 80;
+  const MAX_LEN = 120;
+  const normalize = (arr) =>
+    [...new Set(arr.map((t) => String(t).trim()).filter(Boolean).map((t) => t.slice(0, MAX_LEN)))].slice(0, MAX);
+  if (raw == null || raw === "") return [];
+  if (Array.isArray(raw)) return normalize(raw);
+  const s = String(raw).trim();
+  if (!s) return [];
+  try {
+    const j = JSON.parse(s);
+    if (Array.isArray(j)) return normalize(j);
+  } catch (_) {}
+  return normalize(s.split(/[,;]/));
+}
+
 // ----- Admin posts CRUD -----
 const postMediaFields = [
   { name: "featuredImage", maxCount: 1 },
@@ -888,6 +1181,34 @@ app.get("/api/admin/posts", adminAuthMiddleware, async (req, res) => {
   try {
     const type = req.query.type;
     const filter = type ? { type } : {};
+
+    // Date range filter (preferred): matches browser local calendar month.
+    // GET ...?type=news&start=2026-03-01T00:00:00.000Z&end=2026-04-01T00:00:00.000Z
+    const startRaw = req.query.start;
+    const endRaw = req.query.end;
+    if (startRaw && endRaw) {
+      const start = new Date(String(startRaw));
+      const end = new Date(String(endRaw));
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start) {
+        const maxMs = 2000 * 24 * 60 * 60 * 1000; // guard: ~5.5y max for admin date-range filter
+        if (end.getTime() - start.getTime() <= maxMs) {
+          filter.createdAt = { $gte: start, $lt: end };
+        }
+      }
+    } else {
+      // Legacy: year + month — calendar month in ADMIN_POSTS_TZ (default Asia/Kolkata) so it matches en-IN table dates
+      const year = Number(req.query.year);
+      const month = Number(req.query.month); // 1-12
+      const tz = String(process.env.ADMIN_POSTS_TZ || "Asia/Kolkata").trim() || "Asia/Kolkata";
+      if (Number.isFinite(year) && Number.isFinite(month) && month >= 1 && month <= 12) {
+        filter.$expr = {
+          $and: [
+            { $eq: [{ $year: { date: "$createdAt", timezone: tz } }, year] },
+            { $eq: [{ $month: { date: "$createdAt", timezone: tz } }, month] },
+          ],
+        };
+      }
+    }
     const posts = await Post.find(filter).sort({ createdAt: -1 }).lean();
     res.json(posts);
   } catch (e) {
@@ -904,6 +1225,7 @@ app.post("/api/admin/posts", adminAuthMiddleware, uploadPostMedia.fields(postMed
     if (!title || !category) {
       return res.status(400).json({ error: "Title and category are required" });
     }
+    const slug = slugifyPost(body.slug || title);
     const folder = type === "news" ? "brainfeed-news" : "brainfeed-blog";
     let featuredImageUrl = "";
     if (req.files?.featuredImage?.[0]) {
@@ -939,9 +1261,16 @@ app.post("/api/admin/posts", adminAuthMiddleware, uploadPostMedia.fields(postMed
       );
       audioUrl = r.secure_url;
     }
+    const editorInfo = {
+      adminId: req.adminId || null,
+      name: String(req.adminName || "").trim(),
+      email: String(req.adminEmail || "").trim().toLowerCase(),
+      role: String(req.adminRole || "").trim(),
+    };
     const post = await Post.create({
       type,
       title,
+      slug,
       subtitle: String(body.subtitle || "").trim(),
       content: String(body.content || "").trim(),
       format: ["standard", "gallery", "video", "audio", "link", "quote"].includes(body.format) ? body.format : "standard",
@@ -949,6 +1278,12 @@ app.post("/api/admin/posts", adminAuthMiddleware, uploadPostMedia.fields(postMed
       featuredImageAlt: String(body.featuredImageAlt || "").trim(),
       excerpt: String(body.excerpt || "").trim(),
       readTime: String(body.readTime || "4 min read").trim(),
+      metaTitle: String(body.metaTitle || "").trim(),
+      metaDescription: String(body.metaDescription || "").trim(),
+      focusKeyphrase: String(body.focusKeyphrase || "").trim(),
+      tags: parsePostTags(body.tags),
+      publishedBy: editorInfo,
+      lastEditedBy: editorInfo,
       featuredImageUrl,
       media: {
         gallery: galleryUrls,
@@ -960,6 +1295,11 @@ app.post("/api/admin/posts", adminAuthMiddleware, uploadPostMedia.fields(postMed
     });
     res.status(201).json(post);
   } catch (e) {
+    if (e && e.code === 11000 && e.keyPattern && e.keyPattern.slug) {
+      return res
+        .status(409)
+        .json({ error: "Slug already exists for this type. Please choose a different slug." });
+    }
     res.status(500).json({ error: e.message || "Failed to create post" });
   }
 });
@@ -971,6 +1311,7 @@ app.patch("/api/admin/posts/:id", adminAuthMiddleware, uploadPostMedia.fields(po
     const body = req.body || {};
     const folder = post.type === "news" ? "brainfeed-news" : "brainfeed-blog";
     if (body.title !== undefined) post.title = String(body.title).trim();
+    if (body.slug !== undefined) post.slug = slugifyPost(body.slug || post.title);
     if (body.subtitle !== undefined) post.subtitle = String(body.subtitle).trim();
     if (body.content !== undefined) post.content = String(body.content).trim();
     if (body.format !== undefined && ["standard", "gallery", "video", "audio", "link", "quote"].includes(body.format)) post.format = body.format;
@@ -978,14 +1319,30 @@ app.patch("/api/admin/posts/:id", adminAuthMiddleware, uploadPostMedia.fields(po
     if (body.featuredImageAlt !== undefined) post.featuredImageAlt = String(body.featuredImageAlt).trim();
     if (body.excerpt !== undefined) post.excerpt = String(body.excerpt).trim();
     if (body.readTime !== undefined) post.readTime = String(body.readTime).trim();
+    if (body.metaTitle !== undefined) post.metaTitle = String(body.metaTitle).trim();
+    if (body.metaDescription !== undefined) post.metaDescription = String(body.metaDescription).trim();
+    if (body.focusKeyphrase !== undefined) post.focusKeyphrase = String(body.focusKeyphrase).trim();
+    if (body.tags !== undefined) post.tags = parsePostTags(body.tags);
     if (body.videoUrl !== undefined) post.media.videoUrl = String(body.videoUrl).trim();
     if (body.audioUrl !== undefined) post.media.audioUrl = String(body.audioUrl).trim();
     if (body.linkUrl !== undefined) post.media.linkUrl = String(body.linkUrl).trim();
     if (body.quoteText !== undefined) post.media.quoteText = String(body.quoteText).trim();
+    const editorInfo = {
+      adminId: req.adminId || null,
+      name: String(req.adminName || "").trim(),
+      email: String(req.adminEmail || "").trim().toLowerCase(),
+      role: String(req.adminRole || "").trim(),
+    };
+    if (!post.publishedBy || (!post.publishedBy.name && !post.publishedBy.email)) {
+      post.publishedBy = editorInfo;
+    }
+    post.lastEditedBy = editorInfo;
     if (req.files?.featuredImage?.[0]) {
       const r = await uploadToCloudinary(req.files.featuredImage[0].buffer, req.files.featuredImage[0].mimetype, folder);
       post.featuredImageUrl = r.secure_url;
     }
+    /* Clear gallery *before* appending new uploads (admin “remove all + add new” in one save). */
+    if (body.galleryRemove === "true" || body.clearGallery === "true") post.media.gallery = [];
     if (req.files?.gallery?.length) {
       const newUrls = [];
       for (const file of req.files.gallery) {
@@ -994,10 +1351,14 @@ app.patch("/api/admin/posts/:id", adminAuthMiddleware, uploadPostMedia.fields(po
       }
       post.media.gallery = post.media.gallery.concat(newUrls);
     }
-    if (body.galleryRemove === "true" || body.clearGallery === "true") post.media.gallery = [];
     await post.save();
     res.json(post);
   } catch (e) {
+    if (e && e.code === 11000 && e.keyPattern && e.keyPattern.slug) {
+      return res
+        .status(409)
+        .json({ error: "Slug already exists for this type. Please choose a different slug." });
+    }
     res.status(500).json({ error: e.message || "Failed to update post" });
   }
 });
@@ -1057,12 +1418,23 @@ app.post("/api/admin/pages", adminAuthMiddleware, async (req, res) => {
     }
     const parentId = body.parent ? body.parent : null;
     const order = Number(body.order) ?? 0;
+    const heroImageUrl = String(body.heroImageUrl || "").trim();
+    const heroImageAlt = String(body.heroImageAlt || "").trim();
+    const aboutCovers = {
+      main: String(body.aboutCoverMain || "").trim(),
+      primary2: String(body.aboutCoverPrimary2 || "").trim(),
+      primary1: String(body.aboutCoverPrimary1 || "").trim(),
+      junior: String(body.aboutCoverJunior || "").trim(),
+    };
     const page = await Page.create({
       title,
       slug,
       content: String(body.content || "").trim(),
       parent: parentId || null,
       order,
+      heroImageUrl,
+      heroImageAlt,
+      aboutCovers,
     });
     res.status(201).json(page);
   } catch (e) {
@@ -1093,6 +1465,26 @@ app.patch("/api/admin/pages/:id", adminAuthMiddleware, async (req, res) => {
     if (body.content !== undefined) page.content = String(body.content).trim();
     if (body.parent !== undefined) page.parent = body.parent || null;
     if (body.order !== undefined) page.order = Number(body.order) ?? 0;
+    if (body.heroImageUrl !== undefined) page.heroImageUrl = String(body.heroImageUrl || "").trim();
+    if (body.heroImageAlt !== undefined) page.heroImageAlt = String(body.heroImageAlt || "").trim();
+    if (
+      body.aboutCoverMain !== undefined ||
+      body.aboutCoverPrimary2 !== undefined ||
+      body.aboutCoverPrimary1 !== undefined ||
+      body.aboutCoverJunior !== undefined
+    ) {
+      page.aboutCovers = {
+        ...(page.aboutCovers || {}),
+        ...(body.aboutCoverMain !== undefined ? { main: String(body.aboutCoverMain || "").trim() } : {}),
+        ...(body.aboutCoverPrimary2 !== undefined
+          ? { primary2: String(body.aboutCoverPrimary2 || "").trim() }
+          : {}),
+        ...(body.aboutCoverPrimary1 !== undefined
+          ? { primary1: String(body.aboutCoverPrimary1 || "").trim() }
+          : {}),
+        ...(body.aboutCoverJunior !== undefined ? { junior: String(body.aboutCoverJunior || "").trim() } : {}),
+      };
+    }
     await page.save();
     res.json(page);
   } catch (e) {
@@ -1110,6 +1502,137 @@ app.delete("/api/admin/pages/:id", adminAuthMiddleware, async (req, res) => {
   }
 });
 
+// ----- Admin flipbooks (PDF magazine / flipbook viewer) -----
+app.get("/api/admin/flipbooks", adminAuthMiddleware, async (req, res) => {
+  try {
+    const list = await Flipbook.find().sort({ updatedAt: -1 }).lean();
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to list flipbooks" });
+  }
+});
+
+app.get("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => {
+  try {
+    const fb = await Flipbook.findById(req.params.id).lean();
+    if (!fb) return res.status(404).json({ error: "Flipbook not found" });
+    res.json(fb);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load flipbook" });
+  }
+});
+
+app.post("/api/admin/flipbooks", adminAuthMiddleware, uploadFlipbookPdf.single("pdf"), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const title = String(body.title || "").trim();
+    if (!title) return res.status(400).json({ error: "Title is required" });
+    let slug = String(body.slug || "").trim() || slugify(title);
+    slug = slugify(slug) || "flipbook";
+    const existing = await Flipbook.findOne({ slug });
+    if (existing) {
+      let suffix = 1;
+      while (await Flipbook.findOne({ slug: slug + "-" + suffix })) suffix++;
+      slug = slug + "-" + suffix;
+    }
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: "PDF file is required (field name: pdf)" });
+    }
+    const r = await uploadPdfToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-flipbooks");
+    const pdfUrl = r.secure_url || r.url;
+    const fb = await Flipbook.create({
+      title,
+      slug,
+      pdfUrl,
+      published: body.published !== undefined ? Boolean(body.published) : true,
+    });
+    res.status(201).json(fb);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to create flipbook" });
+  }
+});
+
+app.patch("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => {
+  try {
+    const fb = await Flipbook.findById(req.params.id);
+    if (!fb) return res.status(404).json({ error: "Flipbook not found" });
+    const body = req.body || {};
+    if (body.title !== undefined) fb.title = String(body.title).trim();
+    if (body.slug !== undefined) {
+      const raw = String(body.slug).trim();
+      let candidate = raw ? slugify(raw) : slugify(fb.title);
+      if (!candidate) candidate = "flipbook";
+      let finalSlug = candidate;
+      let n = 0;
+      while (await Flipbook.findOne({ slug: finalSlug, _id: { $ne: fb._id } })) {
+        n += 1;
+        finalSlug = `${candidate}-${n}`;
+      }
+      fb.slug = finalSlug;
+    }
+    if (body.published !== undefined) fb.published = Boolean(body.published);
+    await fb.save();
+    res.json(fb);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to update flipbook" });
+  }
+});
+
+app.post(
+  "/api/admin/flipbooks/:id/pdf",
+  adminAuthMiddleware,
+  uploadFlipbookPdf.single("pdf"),
+  async (req, res) => {
+    try {
+      const fb = await Flipbook.findById(req.params.id);
+      if (!fb) return res.status(404).json({ error: "Flipbook not found" });
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: "PDF file is required (field name: pdf)" });
+      }
+      const r = await uploadPdfToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-flipbooks");
+      fb.pdfUrl = r.secure_url || r.url;
+      await fb.save();
+      res.json(fb);
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to upload PDF" });
+    }
+  }
+);
+
+app.delete("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => {
+  try {
+    const fb = await Flipbook.findByIdAndDelete(req.params.id);
+    if (!fb) return res.status(404).json({ error: "Flipbook not found" });
+    res.json({ deleted: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to delete flipbook" });
+  }
+});
+
+// ----- Public flipbooks -----
+app.get("/api/flipbooks", async (req, res) => {
+  try {
+    const list = await Flipbook.find({ published: true })
+      .sort({ updatedAt: -1 })
+      .select("title slug updatedAt")
+      .lean();
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to list flipbooks" });
+  }
+});
+
+app.get("/api/flipbooks/slug/:slug", async (req, res) => {
+  try {
+    const slug = String(req.params.slug || "").trim();
+    const fb = await Flipbook.findOne({ slug, published: true }).lean();
+    if (!fb) return res.status(404).json({ error: "Flipbook not found" });
+    res.json({ title: fb.title, slug: fb.slug, pdfUrl: fb.pdfUrl });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load flipbook" });
+  }
+});
+
 // ----- Public pages (by slug for menus and single page view) -----
 app.get("/api/pages", async (req, res) => {
   try {
@@ -1122,7 +1645,26 @@ app.get("/api/pages", async (req, res) => {
 
 app.get("/api/pages/slug/:slug", async (req, res) => {
   try {
-    const page = await Page.findOne({ slug: req.params.slug }).lean();
+    const slug = String(req.params.slug || "").trim();
+    let page = await Page.findOne({ slug }).lean();
+
+    // If About page is requested but doesn't exist yet, seed it with default content
+    if (!page && slug === "about") {
+      const defaultContent = `
+<p>Brainfeed is an educational media house empowering children in their journey of childhood, literacy and numeracy development — and helping educators teach out-of-curriculum skills and concepts.</p>
+<p>Our children's editions ignite young minds and nurture curiosity with content that raises questions and stimulates interest. The educator edition connects thousands of school leaders with objective insights to see what's now and next.</p>
+`.trim();
+
+      const created = await Page.create({
+        title: "About Brainfeed",
+        slug: "about",
+        content: defaultContent,
+        parent: null,
+        order: 0,
+      });
+      page = created.toJSON();
+    }
+
     if (!page) return res.status(404).json({ error: "Page not found" });
     res.json(page);
   } catch (e) {
@@ -1218,3 +1760,21 @@ app.use((err, req, res, next) => {
     next(err);
   }
 });
+
+function startServer() {
+  const host = process.env.HOST || "0.0.0.0";
+  app.listen(PORT, host, () => {
+    console.log(`Brainfeed API running on http://${host}:${PORT}`);
+    if (isProduction && (!process.env.JWT_SECRET || process.env.JWT_SECRET === "brainfeed-jwt-secret-change-in-production")) {
+      console.warn("WARNING: Set JWT_SECRET in production (e.g. on Railway) for secure tokens.");
+    }
+    if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+      console.warn("Admin login: ADMIN_EMAIL or ADMIN_PASSWORD not set in .env – admin login may fail.");
+    } else {
+      console.log("Admin login: credentials loaded from .env");
+    }
+  });
+}
+
+// Listen after all routes are registered (Railway health checks + no race on first request)
+startServer();

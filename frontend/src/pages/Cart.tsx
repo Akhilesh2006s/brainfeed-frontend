@@ -4,12 +4,14 @@ import Footer from "@/components/Footer";
 import ScrollReveal from "@/components/ScrollReveal";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
+import { useNavigate } from "react-router-dom";
 
 const formatRupees = (amount: number) =>
   amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 const Cart = () => {
   const { items, removeItem, updateQuantity, clearCart, subtotal } = useCart();
+  const navigate = useNavigate();
 
   const hasItems = items.length > 0;
 
@@ -117,13 +119,13 @@ const Cart = () => {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Final pricing, taxes, and shipping (if applicable) will be confirmed by the Brainfeed
-                    team after you submit your order details.
+                    After reviewing your cart, continue to checkout to fill in your details and complete payment.
                   </p>
                   <Button
                     type="button"
                     disabled={!hasItems}
                     className="w-full rounded-full text-xs font-semibold uppercase tracking-[0.18em] disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={() => navigate("/checkout")}
                   >
                     Proceed to checkout
                   </Button>

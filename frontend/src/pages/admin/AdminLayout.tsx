@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAdmin } from "@/context/AdminContext";
 import { useEffect } from "react";
-import { Newspaper, PlusCircle, LogOut, List, Plus, Users as UsersIcon, Package } from "lucide-react";
+import { Newspaper, PlusCircle, LogOut, List, Plus, Users as UsersIcon, Package, Settings, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const AdminLayout = () => {
@@ -14,9 +14,12 @@ const AdminLayout = () => {
   const isNewsPostsActive = pathname === "/admin/posts" || pathname.startsWith("/admin/posts/");
   const isAddNewsActive = pathname === "/admin/posts/new";
   const isPagesActive = pathname.startsWith("/admin/pages");
+  const isFlipbooksActive = pathname.startsWith("/admin/flipbooks");
+  const isSiteSettingsActive = pathname.startsWith("/admin/site-settings");
   const isSubscriptionsActive = pathname.startsWith("/admin/subscriptions");
   const isProductsActive = pathname.startsWith("/admin/products");
   const isUsersActive = pathname.startsWith("/admin/users");
+  const isSignupUsersActive = pathname.startsWith("/admin/signup-users");
 
   const baseNavClasses =
     "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors";
@@ -77,6 +80,27 @@ const AdminLayout = () => {
               >
                 <Plus className="h-4 w-4" />
                 Add Page
+              </Link>
+              <Link
+                to="/admin/flipbooks"
+                className={`${baseNavClasses} mt-1 ${isFlipbooksActive ? activeClasses : inactiveClasses}`}
+              >
+                <BookOpen className="h-4 w-4" />
+                Flipbooks (PDF)
+              </Link>
+              <Link
+                to="/admin/flipbooks/new"
+                className={`${baseNavClasses} ${isFlipbooksActive ? activeClasses : inactiveClasses}`}
+              >
+                <Plus className="h-4 w-4" />
+                Add flipbook
+              </Link>
+              <Link
+                to="/admin/site-settings"
+                className={`${baseNavClasses} mt-1 ${isSiteSettingsActive ? activeClasses : inactiveClasses}`}
+              >
+                <Settings className="h-4 w-4" />
+                Site settings
               </Link>
             </div>
           )}

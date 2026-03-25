@@ -76,7 +76,7 @@ const AdminPageList = () => {
                   </td>
                   <td className="p-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <a href={`/page/${page.slug}`} target="_blank" rel="noopener noreferrer">
+                      <a href={`/${page.slug}`} target="_blank" rel="noopener noreferrer">
                         <Button variant="ghost" size="sm" className="h-8">
                           View
                         </Button>

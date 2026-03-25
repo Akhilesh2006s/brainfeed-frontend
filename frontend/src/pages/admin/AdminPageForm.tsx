@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAdmin } from "@/context/AdminContext";
+import { buildApiUrl } from "@/lib/apiUrl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bold, Italic, Underline, Strikethrough, List, ListOrdered, Heading2, Link as LinkIcon, Eraser } from "lucide-react";
 import { toast } from "sonner";
-
-const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 
 function slugFromTitle(title: string): string {
   return title
@@ -20,121 +19,12 @@ function slugFromTitle(title: string): string {
     .replace(/^-|-$/g, "") || "page";
 }
 
-/** Simple rich text editor for page content */
-function RichTextEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const isInternal = useRef(false);
-  const savedRange = useRef<Range | null>(null);
-  const [formatState, setFormatState] = useState({ bold: false, italic: false, underline: false, strike: false });
-
-  const updateFormatState = () => {
-    const el = ref.current;
-    if (!el || !document.contains(el)) return;
-    const sel = window.getSelection();
-    const inEditor = sel && (el.contains(sel.anchorNode) || el.contains(sel.focusNode));
-    if (!inEditor) return;
-    if (sel && sel.rangeCount > 0) {
-      savedRange.current = sel.getRangeAt(0).cloneRange();
-    }
-    setFormatState({
-      bold: document.queryCommandState("bold"),
-      italic: document.queryCommandState("italic"),
-      underline: document.queryCommandState("underline"),
-      strike: document.queryCommandState("strikeThrough"),
-    });
-  };
-
-  useEffect(() => {
-    if (!ref.current) return;
-    if (isInternal.current) {
-      isInternal.current = false;
-      return;
-    }
-    if (ref.current.innerHTML !== value) ref.current.innerHTML = value || "";
-  }, [value]);
-
-  useEffect(() => {
-    document.addEventListener("selectionchange", updateFormatState);
-    return () => document.removeEventListener("selectionchange", updateFormatState);
-  }, []);
-
-  const emit = () => {
-    if (!ref.current) return;
-    isInternal.current = true;
-    onChange(ref.current.innerHTML);
-  };
-
-  const cmd = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    ref.current?.focus();
-    emit();
-    setTimeout(updateFormatState, 0);
-  };
-
-  const addLink = () => {
-    const url = window.prompt("Link URL:");
-    if (!url) return;
-    const sel = window.getSelection();
-    if (savedRange.current && sel) {
-      sel.removeAllRanges();
-      sel.addRange(savedRange.current);
-    }
-    cmd("createLink", url);
-  };
-
-  const btn = (active: boolean) =>
-    active ? "h-8 w-8 bg-accent/20 text-accent hover:bg-accent/30" : "h-8 w-8";
-
-  return (
-    <div className="rounded-md border border-input bg-background overflow-hidden">
-      <div className="flex flex-wrap items-center gap-0.5 p-1.5 border-b border-input bg-muted/50">
-        <Button type="button" variant="ghost" size="icon" className={btn(formatState.bold)} onClick={() => cmd("bold")} title="Bold">
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className={btn(formatState.italic)} onClick={() => cmd("italic")} title="Italic">
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className={btn(formatState.underline)} onClick={() => cmd("underline")} title="Underline">
-          <Underline className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className={btn(formatState.strike)} onClick={() => cmd("strikeThrough")} title="Strikethrough">
-          <Strikethrough className="h-4 w-4" />
-        </Button>
-        <span className="w-px h-6 bg-border mx-0.5" />
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => cmd("formatBlock", "h2")} title="Heading 2">
-          <Heading2 className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => cmd("insertUnorderedList")} title="Bullet list">
-          <List className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => cmd("insertOrderedList")} title="Numbered list">
-          <ListOrdered className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={addLink} title="Insert link">
-          <LinkIcon className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => cmd("removeFormat")} title="Clear formatting">
-          <Eraser className="h-4 w-4" />
-        </Button>
-      </div>
-      <div
-        ref={ref}
-        contentEditable
-        className="rich-editor-body min-h-[200px] p-3 text-foreground focus:outline-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_h2]:text-xl [&_h2]:font-semibold empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
-        data-placeholder={placeholder}
-        onInput={emit}
-        suppressContentEditableWarning
-      />
-    </div>
-  );
-}
-
 type PageOption = { _id: string; title: string; slug: string };
 
 const AdminPageForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const { token } = useAdmin();
+  const { token, isLoading: adminAuthLoading } = useAdmin();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
@@ -142,39 +32,147 @@ const AdminPageForm = () => {
   const [content, setContent] = useState("");
   const [parent, setParent] = useState<string>("");
   const [order, setOrder] = useState(0);
+  const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [heroImageAlt, setHeroImageAlt] = useState("");
+  const [aboutCoverMain, setAboutCoverMain] = useState("");
+  const [aboutCoverPrimary2, setAboutCoverPrimary2] = useState("");
+  const [aboutCoverPrimary1, setAboutCoverPrimary1] = useState("");
+  const [aboutCoverJunior, setAboutCoverJunior] = useState("");
   const [parentOptions, setParentOptions] = useState<PageOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  /** Same endpoint as news post editor — uploads to Cloudinary (needs backend route + redeploy on Railway). */
+  const uploadInlineImage = useCallback(
+    async (file: File) => {
+      if (!token) throw new Error("Sign in required");
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(buildApiUrl("/admin/posts/inline-image"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const hint =
+          res.status === 404
+            ? "Image upload API missing on server — redeploy backend with latest code (POST /api/admin/posts/inline-image)."
+            : (data as { error?: string })?.error || "Image upload failed";
+        throw new Error(hint);
+      }
+      const url = (data as { url?: string }).url;
+      if (!url) throw new Error("No image URL returned");
+      return url;
+    },
+    [token],
+  );
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${API_BASE}/api/admin/pages`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(buildApiUrl("/admin/pages"), { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : []))
       .then((pages: PageOption[]) => setParentOptions(Array.isArray(pages) ? pages.filter((p) => p._id !== id) : []))
       .catch(() => setParentOptions([]));
   }, [token, id]);
 
+  /** New pages only — never overwrite slug from title while editing an existing page */
   useEffect(() => {
-    if (!title && !isEdit) setSlug("");
-    else if (!isEdit) setSlug(slugFromTitle(title));
+    if (isEdit) return;
+    if (!title) setSlug("");
+    else setSlug(slugFromTitle(title));
   }, [title, isEdit]);
 
   useEffect(() => {
-    if (isEdit && id && token) {
-      fetch(`${API_BASE}/api/admin/pages/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((p: { title?: string; slug?: string; content?: string; parent?: string | null; order?: number } | null) => {
-          if (!p) return;
-          setTitle(String(p.title || ""));
-          setSlug(String(p.slug || ""));
-          setContent(String(p.content || ""));
-          setParent(p.parent ? String(p.parent) : "");
-          setOrder(Number(p.order) ?? 0);
-        })
-        .catch(() => toast.error("Failed to load page"))
-        .finally(() => setLoading(false));
+    if (!isEdit || !id) {
+      setLoading(false);
+      setLoadError(null);
+      return;
     }
-  }, [isEdit, id, token]);
+    if (!token) {
+      if (!adminAuthLoading) {
+        setLoading(false);
+        setLoadError("You must be signed in to edit this page.");
+      }
+      return;
+    }
+
+    let cancelled = false;
+    setLoadError(null);
+    setLoading(true);
+
+    fetch(buildApiUrl(`/admin/pages/${id}`), { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (res) => {
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((j as { error?: string })?.error || "Failed to load page");
+        return j as Record<string, unknown>;
+      })
+      .then((raw) => {
+        if (cancelled) return;
+        const p = ((raw as any)?.page || (raw as any)?.data || raw || {}) as {
+          title?: string;
+          slug?: string;
+          content?: string;
+          parent?: string | { toString?: () => string } | null;
+          order?: number;
+          heroImageUrl?: string;
+          heroImageAlt?: string;
+          aboutCovers?: {
+            main?: string;
+            primary2?: string;
+            primary1?: string;
+            junior?: string;
+          };
+        };
+
+        setTitle(String(p.title ?? ""));
+        setSlug(String(p.slug ?? ""));
+        setContent(String(p.content ?? ""));
+        const parentVal = p.parent;
+        setParent(
+          parentVal != null && parentVal !== ""
+            ? typeof parentVal === "object" && parentVal && "_id" in parentVal
+              ? String((parentVal as { _id: unknown })._id)
+              : String(parentVal)
+            : "",
+        );
+        const ord = p.order;
+        const num =
+          typeof ord === "number" && !Number.isNaN(ord)
+            ? ord
+            : Number(ord);
+        setOrder(Number.isFinite(num) ? num : 0);
+        setHeroImageUrl(String(p.heroImageUrl ?? ""));
+        setHeroImageAlt(String(p.heroImageAlt ?? ""));
+        setAboutCoverMain(String(p.aboutCovers?.main ?? ""));
+        setAboutCoverPrimary2(String(p.aboutCovers?.primary2 ?? ""));
+        setAboutCoverPrimary1(String(p.aboutCovers?.primary1 ?? ""));
+        setAboutCoverJunior(String(p.aboutCovers?.junior ?? ""));
+      })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Failed to load page";
+        setLoadError(msg);
+        toast.error(msg);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, id, token, adminAuthLoading]);
+
+  /** Radix Select requires value to match an item — include saved parent if list omits it */
+  const parentSelectOptions = useMemo(() => {
+    if (!parent) return parentOptions;
+    if (parentOptions.some((o) => o._id === parent)) return parentOptions;
+    return [
+      ...parentOptions,
+      { _id: parent, title: "(Parent page)", slug: "" },
+    ];
+  }, [parentOptions, parent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,9 +187,15 @@ const AdminPageForm = () => {
       content,
       parent: parent || null,
       order,
+      heroImageUrl: heroImageUrl.trim(),
+      heroImageAlt: heroImageAlt.trim(),
+      aboutCoverMain: aboutCoverMain.trim(),
+      aboutCoverPrimary2: aboutCoverPrimary2.trim(),
+      aboutCoverPrimary1: aboutCoverPrimary1.trim(),
+      aboutCoverJunior: aboutCoverJunior.trim(),
     });
     try {
-      const url = isEdit ? `${API_BASE}/api/admin/pages/${id}` : `${API_BASE}/api/admin/pages`;
+      const url = isEdit ? buildApiUrl(`/admin/pages/${id}`) : buildApiUrl("/admin/pages");
       const method = isEdit ? "PATCH" : "POST";
       const res = await fetch(url, {
         method,
@@ -211,12 +215,24 @@ const AdminPageForm = () => {
 
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
 
+  if (isEdit && loadError) {
+    return (
+      <div className="space-y-4 max-w-lg">
+        <h1 className="font-serif text-2xl text-foreground">Edit page</h1>
+        <p className="text-sm text-destructive">{loadError}</p>
+        <Button type="button" variant="outline" onClick={() => navigate("/admin/pages")}>
+          Back to pages
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1 className="font-serif text-2xl text-foreground mb-6">
         {isEdit ? "Edit page" : "Add page"}
       </h1>
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+      <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-none">
         <div className="space-y-2">
           <Label>Page title</Label>
           <Input
@@ -228,6 +244,70 @@ const AdminPageForm = () => {
           />
           <p className="text-xs text-muted-foreground">This also becomes the URL slug if you don’t set one below.</p>
         </div>
+        {(slug === "about" || slug === "about-us") && (
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card/60 p-4 md:p-5">
+            <h2 className="font-serif text-lg text-foreground">About page images</h2>
+            <p className="text-xs text-muted-foreground">
+              These image URLs are used on the public About Us page. Leave any field blank to use the default design image.
+            </p>
+            <div className="space-y-2">
+              <Label>Hero image URL (right side)</Label>
+              <Input
+                value={heroImageUrl}
+                onChange={(e) => setHeroImageUrl(e.target.value)}
+                placeholder="https://..."
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Hero image alt text</Label>
+              <Input
+                value={heroImageAlt}
+                onChange={(e) => setHeroImageAlt(e.target.value)}
+                placeholder="Short description for accessibility"
+                className="h-11"
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Brainfeed Magazine cover URL</Label>
+                <Input
+                  value={aboutCoverMain}
+                  onChange={(e) => setAboutCoverMain(e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Brainfeed Primary 2 cover URL</Label>
+                <Input
+                  value={aboutCoverPrimary2}
+                  onChange={(e) => setAboutCoverPrimary2(e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Brainfeed Primary 1 cover URL</Label>
+                <Input
+                  value={aboutCoverPrimary1}
+                  onChange={(e) => setAboutCoverPrimary1(e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Brainfeed Junior cover URL</Label>
+                <Input
+                  value={aboutCoverJunior}
+                  onChange={(e) => setAboutCoverJunior(e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           <Label>URL slug (optional)</Label>
           <Input
@@ -236,7 +316,7 @@ const AdminPageForm = () => {
             placeholder="e.g. about-us, contact"
             className="h-11 font-mono text-sm"
           />
-          <p className="text-xs text-muted-foreground">Page URL: /page/{slug || slugFromTitle(title) || "…"}</p>
+          <p className="text-xs text-muted-foreground">Page URL: /{slug || slugFromTitle(title) || "…"}</p>
         </div>
         <div className="space-y-2">
           <Label>Parent page (optional)</Label>
@@ -246,7 +326,7 @@ const AdminPageForm = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None (top level)</SelectItem>
-              {parentOptions.map((p) => (
+              {parentSelectOptions.map((p) => (
                 <SelectItem key={p._id} value={p._id}>{p.title}</SelectItem>
               ))}
             </SelectContent>
@@ -265,9 +345,12 @@ const AdminPageForm = () => {
         <div className="space-y-2">
           <Label>Content</Label>
           <RichTextEditor
+            key={isEdit && id ? `page-${id}` : "new-page"}
+            variant="basic"
             value={content}
             onChange={setContent}
             placeholder="Add content using the toolbar: headings, lists, links, etc. Paste a YouTube link on its own line to embed the video."
+            uploadInlineImage={uploadInlineImage}
           />
           <p className="text-xs text-muted-foreground">
             To embed a YouTube video, paste the video URL (for example

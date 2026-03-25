@@ -5,6 +5,15 @@ const pageSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     slug: { type: String, required: true, trim: true, unique: true },
     content: { type: String, default: "" },
+    // Optional visual fields used by specific pages like "About"
+    heroImageUrl: { type: String, default: "" },
+    heroImageAlt: { type: String, default: "" },
+    aboutCovers: {
+      main: { type: String, default: "" },
+      primary2: { type: String, default: "" },
+      primary1: { type: String, default: "" },
+      junior: { type: String, default: "" },
+    },
     parent: { type: mongoose.Schema.Types.ObjectId, ref: "Page", default: null },
     order: { type: Number, default: 0 },
   },

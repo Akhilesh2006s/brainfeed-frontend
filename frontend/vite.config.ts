@@ -7,7 +7,8 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    // Match Vite’s default so `npm run dev` + `/api` proxy work without extra config
+    port: 5173,
     hmr: {
       overlay: false,
     },

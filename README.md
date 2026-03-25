@@ -39,6 +39,7 @@ App runs at **http://localhost:8080**. In dev, `/api` requests are proxied to th
 
 **Backend** (Railway, Render, Fly.io, etc.)
 
+- **Important:** In Railway, set **Root Directory** to `backend` (or use the monorepo root with `npm start`, which runs the API from `backend/`). If the wrong folder is deployed, you may get **404** on newer routes (e.g. flipbooks).
 - Deploy the `backend/` folder. Set these env vars in the platform:
   - `MONGO_URI`, `JWT_SECRET`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
   - `ADMIN_EMAIL`, `ADMIN_PASSWORD`
@@ -59,6 +60,7 @@ App runs at **http://localhost:8080**. In dev, `/api` requests are proxied to th
 | White screen / API fails in production | Set `VITE_API_URL` to backend URL and **rebuild** the frontend. |
 | CORS errors | Set `CORS_ORIGIN` (or `FRONTEND_URL`) on the backend to your frontend URL. |
 | 404 on refresh (e.g. `/admin/posts`) | Use the included `vercel.json` / `netlify.toml`, or configure your host to serve `index.html` for all routes. |
+| **404 on `/api/admin/flipbooks`** (flipbook admin) | Redeploy the **backend** from latest code. On Railway, **Root Directory** = `backend`. Verify in a browser: `https://YOUR-API.railway.app/api/capabilities` — should return JSON with `"flipbooks": true`. If that URL 404s, the running server is old or not this repo’s `backend`. |
 | Admin 401 after deploy | Ensure backend has `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MONGO_URI` set and MongoDB is reachable. |
 
 **Security:** Never commit `.env` (it’s in `.gitignore`). Use strong `JWT_SECRET` and `ADMIN_PASSWORD` in production.

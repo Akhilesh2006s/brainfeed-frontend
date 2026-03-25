@@ -1,8 +1,28 @@
 import { motion } from "framer-motion";
 import { Facebook, Twitter, Instagram, Linkedin, Youtube, Mail } from "lucide-react";
 import logo from "@/assets/logo-brainfeed.png";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 const Footer = () => {
+  const { settings } = useSiteSettings();
+  const description =
+    settings?.footer?.description ||
+    "India's premier education magazine empowering educators, parents, and students since 2010.";
+  const footerEmail = settings?.footer?.email || "admin@brainfeedmagazine.com";
+  const social = settings?.footer?.social || {};
+  const hrefFor = (i: number) =>
+    i === 0
+      ? social.facebook || "https://www.facebook.com/brainfeededumag"
+      : i === 1
+      ? social.twitter || "https://twitter.com/brainfeededumag"
+      : i === 2
+      ? social.instagram || "https://www.instagram.com/brainfeededumag/"
+      : i === 3
+      ? social.linkedin || "https://www.linkedin.com/in/brainfeededumag/"
+      : i === 4
+      ? social.youtube || "https://www.youtube.com/@brainfeedmagazine"
+      : `mailto:${social.email || "info@brainfeedmagazine.com"}`;
+
   return (
     <footer className="bg-foreground text-background/70 pt-10 sm:pt-12 md:pt-16 pb-6 sm:pb-8">
       <div className="container">
@@ -16,7 +36,24 @@ const Footer = () => {
           <div className="sm:col-span-2 md:col-span-1">
             <img src={logo} alt="Brainfeed Magazine" className="h-9 sm:h-10 brightness-200 w-auto" />
             <p className="mt-4 sm:mt-5 text-[13px] sm:text-sm leading-[1.8] font-sans text-background/50">
-              India's premier education magazine empowering educators, parents, and students since 2010.
+              {description}
+            </p>
+            <div className="mt-5 flex items-center gap-3 sm:gap-4">
+              {[Facebook, Twitter, Instagram, Linkedin, Youtube, Mail].map((Icon, i) => (
+                <motion.a
+                  key={i}
+                  href={hrefFor(i)}
+                  target={i === 5 ? undefined : "_blank"}
+                  rel={i === 5 ? undefined : "noreferrer"}
+                  className="text-background/60 hover:text-accent transition-colors duration-300 flex items-center justify-center"
+                  whileHover={{ scale: 1.2, y: -2 }}
+                >
+                  <Icon className="h-5 w-5" />
+                </motion.a>
+              ))}
+            </div>
+            <p className="mt-4 text-[13px] sm:text-sm font-sans text-background/45 break-all">
+              {footerEmail}
             </p>
           </div>
 
@@ -28,7 +65,6 @@ const Footer = () => {
                 { label: "About Us", href: "/about" },
                 { label: "News", href: "/news" },
                 { label: "Subscribe", href: "/subscribe" },
-                { label: "Contact Us", href: "/contact" },
               ].map(({ label, href }) => (
                 <li key={label}>
                   <a href={href} className="hover:text-accent transition-colors duration-300">{label}</a>
@@ -52,12 +88,12 @@ const Footer = () => {
             <ul className="space-y-2.5 sm:space-y-3 text-[13px] sm:text-sm font-sans">
               {[
                 { label: "All News", href: "/news" },
-                { label: "Achievement", href: "/news?category=achievement" },
-                { label: "Press Release", href: "/news?category=press-release" },
-                { label: "Education", href: "/news" },
-                { label: "Technology", href: "/news" },
-                { label: "Parenting", href: "/news" },
+                { label: "Education", href: "/news?category=education" },
+                { label: "Policy", href: "/news?category=policy" },
+                { label: "Parenting", href: "/news?category=parenting" },
                 { label: "Expert View", href: "/news?category=expert-view" },
+                { label: "Technology", href: "/news?category=technology" },
+                { label: "Press Release", href: "/news?category=press-release" },
               ].map(({ label, href }) => (
                 <li key={label}>
                   <a href={href} className="hover:text-accent transition-colors duration-300">
@@ -66,39 +102,6 @@ const Footer = () => {
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div>
-            <h4 className="font-serif text-background text-base sm:text-lg mb-4 sm:mb-5">Connect</h4>
-            <div className="flex items-center gap-3 sm:gap-4">
-              {[Facebook, Twitter, Instagram, Linkedin, Youtube, Mail].map((Icon, i) => (
-                <motion.a
-                  key={i}
-                  href={
-                    i === 0
-                      ? "https://www.facebook.com/brainfeededumag"
-                      : i === 1
-                      ? "https://twitter.com/brainfeededumag"
-                      : i === 2
-                      ? "https://www.instagram.com/brainfeededumag/"
-                      : i === 3
-                      ? "https://www.linkedin.com/in/brainfeededumag/"
-                      : i === 4
-                      ? "https://www.youtube.com/@brainfeedmagazine"
-                      : "mailto:info@brainfeedmagazine.com"
-                  }
-                  target={i === 5 ? undefined : "_blank"}
-                  rel={i === 5 ? undefined : "noreferrer"}
-                  className="text-background/50 hover:text-accent transition-colors duration-300 flex items-center justify-center"
-                  whileHover={{ scale: 1.2, y: -2 }}
-                >
-                  <Icon className="h-5 w-5" />
-                </motion.a>
-              ))}
-            </div>
-            <p className="mt-4 sm:mt-5 text-[13px] sm:text-sm font-sans text-background/40 break-all">
-              admin@brainfeedmagazine.com
-            </p>
           </div>
         </motion.div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
@@ -10,14 +10,41 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import heroEducation from "@/assets/hero-education.jpg";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 const Contact = () => {
+  const { settings } = useSiteSettings();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     subject: "",
     message: "",
   });
+
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document
+      .querySelector('meta[name="description"]')
+      ?.getAttribute("content");
+
+    document.title = "Contact Brainfeed Magazine | Get in Touch";
+
+    let metaEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!metaEl) {
+      metaEl = document.createElement("meta");
+      metaEl.name = "description";
+      document.head.appendChild(metaEl);
+    }
+    metaEl.content =
+      "Contact Brainfeed Magazine for queries, advertising, and collaboration opportunities in education and EdTech.";
+
+    return () => {
+      document.title = originalTitle;
+      if (metaEl && originalDescription !== null && originalDescription !== undefined) {
+        metaEl.content = originalDescription;
+      }
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +55,30 @@ const Contact = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
+
+  const contact = settings?.contact;
+  const addressLines = contact?.addressLines?.length
+    ? contact.addressLines
+    : [
+        "Kakani Edu Media Pvt Ltd",
+        "Plot No: 47, Rd Number 4A, adjacent to Bose Edifice,",
+        "Golden Tulip Estate, Raghavendra Colony, Hyderabad,",
+        "Telangana 500084",
+      ];
+  const whatsapp = contact?.whatsapp || "918448737157";
+  const phoneAlt = contact?.phoneAlt || "";
+  const emails = contact?.emails?.length ? contact.emails : ["info@brainfeedmagazine.com", "kakani2406@gmail.com"];
+  const regionTitle = contact?.regionTitle || "Punjab Region";
+  const regionName = contact?.regionName || "Katyayani Singh";
+  const regionWhatsapp = contact?.regionWhatsapp || whatsapp;
+  const regionEmail = contact?.regionEmail || "katyayanis2019@gmail.com";
+  const mapUrl =
+    contact?.mapUrl ||
+    "https://www.google.com/maps?ll=17.473071,78.357614&z=22&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038";
+  const mapEmbedUrl =
+    contact?.mapEmbedUrl || "https://www.google.com/maps?q=17.473071,78.357614&z=22&output=embed";
+
+  const addressHtml = useMemo(() => addressLines.join("<br />"), [addressLines]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,33 +122,46 @@ const Contact = () => {
                         Address
                       </p>
                       <p className="text-muted-foreground font-sans text-sm leading-relaxed">
-                        Kakani Edu Media Pvt Ltd
-                        <br />
-                        Plot No: 47, Rd Number 4A, adjacent to Bose Edifice,
-                        Golden Tulip Estate, Raghavendra Colony, Hyderabad,
-                        Telangana 500084
+                        <span dangerouslySetInnerHTML={{ __html: addressHtml }} />
                       </p>
                     </div>
                   </div>
                 </ScrollReveal>
                 <ScrollReveal direction="up" delay={0.15} once>
-                  <div className="flex gap-4">
-                    <Phone className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-1">
-                        WhatsApp
-                      </p>
-                      <p className="text-muted-foreground font-sans text-sm">
-                        <a
-                          href="https://wa.me/918448737157"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:text-accent transition-colors"
-                        >
-                          +91 8448737157
-                        </a>
-                      </p>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex gap-4">
+                      <Phone className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-1">
+                          WhatsApp
+                        </p>
+                        <p className="text-muted-foreground font-sans text-sm">
+                          <a
+                            href={`https://wa.me/${whatsapp}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-accent transition-colors"
+                          >
+                            +{whatsapp}
+                          </a>
+                        </p>
+                      </div>
                     </div>
+                    {phoneAlt && (
+                      <div className="flex gap-4">
+                        <Phone className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-1">
+                            Phone
+                          </p>
+                          <p className="text-muted-foreground font-sans text-sm">
+                            <a href={`tel:${phoneAlt}`} className="hover:text-accent transition-colors">
+                              {phoneAlt}
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </ScrollReveal>
                 <ScrollReveal direction="up" delay={0.2} once>
@@ -107,49 +171,40 @@ const Contact = () => {
                       <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-1">
                         Email
                       </p>
-                      <p className="text-muted-foreground font-sans text-sm">
-                        <a
-                          href="mailto:info@brainfeedmagazine.com"
-                          className="hover:text-accent transition-colors break-all"
-                        >
-                          info@brainfeedmagazine.com
-                        </a>
-                      </p>
-                      <p className="text-muted-foreground font-sans text-sm mt-0.5">
-                        <a
-                          href="mailto:kakani2406@gmail.com"
-                          className="hover:text-accent transition-colors break-all"
-                        >
-                          kakani2406@gmail.com
-                        </a>
-                      </p>
+                      {emails.map((e) => (
+                        <p key={e} className="text-muted-foreground font-sans text-sm mt-0.5">
+                          <a href={`mailto:${e}`} className="hover:text-accent transition-colors break-all">
+                            {e}
+                          </a>
+                        </p>
+                      ))}
                     </div>
                   </div>
                 </ScrollReveal>
                 <ScrollReveal direction="up" delay={0.25} once>
                   <div className="pt-4 border-t border-border/50">
                     <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-2">
-                      Punjab Region
+                      {regionTitle}
                     </p>
                     <p className="text-muted-foreground font-sans text-sm">
-                      Katyayani Singh
+                      {regionName}
                     </p>
                     <p className="text-muted-foreground font-sans text-sm mt-0.5">
                       <a
-                        href="https://wa.me/918448737157"
+                        href={`https://wa.me/${regionWhatsapp}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-accent transition-colors"
                       >
-                        +91 8448737157
+                        +{regionWhatsapp}
                       </a>
                     </p>
                     <p className="text-muted-foreground font-sans text-sm mt-0.5">
                       <a
-                        href="mailto:katyayanis2019@gmail.com"
+                        href={`mailto:${regionEmail}`}
                         className="hover:text-accent transition-colors break-all"
                       >
-                        katyayanis2019@gmail.com
+                        {regionEmail}
                       </a>
                     </p>
                   </div>
@@ -250,7 +305,7 @@ const Contact = () => {
             <div className="container flex flex-wrap items-baseline justify-between gap-2 py-3">
               <h2 className="section-title mb-0">Find Us</h2>
               <a
-                href="https://www.google.com/maps?ll=17.473071,78.357614&z=22&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038"
+                href={mapUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-accent hover:underline font-medium"
@@ -262,7 +317,7 @@ const Contact = () => {
           <div className="w-full aspect-[16/10] sm:aspect-[2/1] md:aspect-[21/9] min-h-[240px] max-h-[50vh]">
             <iframe
               title="Brainfeed Magazine location - Hyderabad"
-              src="https://www.google.com/maps?q=17.473071,78.357614&z=22&output=embed"
+              src={mapEmbedUrl}
               width="100%"
               height="100%"
               className="block w-full h-full border-0"

@@ -94,6 +94,8 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /* Increase base font scale so small UI text stays readable at 100% zoom */
+    font-size: 112.5%;
   }
 
   body {
@@ -143,7 +145,7 @@
   }
 
   .category-badge {
-    @apply text-[11px] font-semibold uppercase tracking-widest text-accent;
+    @apply text-xs font-semibold uppercase tracking-widest text-accent;
   }
 
   .top-bar-link {
@@ -165,6 +167,7 @@
 
   .news-article-body .news-image img {
     display: block;
+    width: auto;
     max-width: 100%;
     height: auto;
   }
@@ -180,6 +183,19 @@
 
   .news-article-body .news-image--full img {
     width: 100%;
+  }
+
+  /* Size modifiers for inline images */
+  .news-article-body .news-image--sm img {
+    max-width: 30%;
+  }
+
+  .news-article-body .news-image--md img {
+    max-width: 50%;
+  }
+
+  .news-article-body .news-image--lg img {
+    max-width: 75%;
   }
 
   .news-article-body .news-image--left {
@@ -202,6 +218,211 @@
     clear: both;
   }
 
+  /* Inline figures from admin editor: legacy sm/md/lg + text wrap (hide − / + / L R B on public site) */
+  .news-article-body figure.editor-inline-figure[data-editor-img-size="sm"] .editor-inline-img {
+    max-width: 45%;
+  }
+  .news-article-body figure.editor-inline-figure[data-editor-img-size="md"] .editor-inline-img {
+    max-width: 80%;
+  }
+  .news-article-body figure.editor-inline-figure[data-editor-img-size="lg"] .editor-inline-img,
+  .news-article-body figure.editor-inline-figure:not([data-editor-img-size]):not([data-editor-img-width]) .editor-inline-img {
+    max-width: 100%;
+  }
+  /* New editor: width is usually inline on img; fallback if stripped */
+  .news-article-body figure.editor-inline-figure[data-editor-img-wrap="left"] {
+    float: left;
+    margin-right: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .news-article-body figure.editor-inline-figure[data-editor-img-wrap="right"] {
+    float: right;
+    margin-left: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  /* Block: figure width is set inline (%) — box hugs image; center with margins, not full-width text-align */
+  .news-article-body figure.editor-inline-figure[data-editor-img-wrap="block"] {
+    float: none;
+    clear: both;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+  .news-article-body figure.editor-inline-figure[data-editor-img-width] .editor-inline-img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+  .news-article-body .editor-img-size-bar,
+  .news-article-body .editor-img-frame {
+    display: none !important;
+  }
+
+  /* Admin rich text: same float/wrap behavior + centered block images */
+  .rich-editor-body figure.editor-inline-figure[data-editor-img-wrap="left"] {
+    float: left;
+    margin-right: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .rich-editor-body figure.editor-inline-figure[data-editor-img-wrap="right"] {
+    float: right;
+    margin-left: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .rich-editor-body figure.editor-inline-figure[data-editor-img-wrap="block"] {
+    float: none;
+    clear: both;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+  .rich-editor-body figure.editor-inline-figure[data-editor-img-wrap="left"],
+  .rich-editor-body figure.editor-inline-figure[data-editor-img-wrap="right"] {
+    box-sizing: border-box;
+  }
+  .rich-editor-body figure.editor-inline-figure[data-editor-img-width] .editor-inline-img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Word-style image frame + handles (admin editor only) */
+  .rich-editor-body figure.editor-inline-figure {
+    position: relative;
+    overflow: visible;
+  }
+  .rich-editor-body .editor-inline-figure-inner {
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+  }
+  .rich-editor-body .editor-img-frame {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    pointer-events: none;
+    z-index: 10;
+    border: 2px solid transparent;
+    border-radius: 2px;
+    transition: border-color 0.12s ease;
+  }
+  .rich-editor-body figure.editor-inline-figure.editor-selected .editor-img-frame {
+    border-color: hsl(var(--ring));
+  }
+  .rich-editor-body .editor-img-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    margin: -5px;
+    border: 2px solid hsl(var(--foreground));
+    background: hsl(var(--background));
+    border-radius: 9999px;
+    box-sizing: border-box;
+    z-index: 12;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .rich-editor-body figure.editor-inline-figure.editor-selected .editor-img-handle,
+  .rich-editor-body figure.editor-inline-figure.editor-selected .editor-img-rotate-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .rich-editor-body figure.editor-inline-figure.editor-selected .editor-img-handle {
+    pointer-events: auto;
+  }
+  .rich-editor-body .editor-img-handle--nw {
+    left: 0;
+    top: 0;
+    cursor: nwse-resize;
+  }
+  .rich-editor-body .editor-img-handle--n {
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -50%);
+    cursor: ns-resize;
+  }
+  .rich-editor-body .editor-img-handle--ne {
+    right: 0;
+    top: 0;
+    cursor: nesw-resize;
+  }
+  .rich-editor-body .editor-img-handle--e {
+    right: 0;
+    top: 50%;
+    transform: translate(50%, -50%);
+    cursor: ew-resize;
+  }
+  .rich-editor-body .editor-img-handle--se {
+    right: 0;
+    bottom: 0;
+    cursor: nwse-resize;
+  }
+  .rich-editor-body .editor-img-handle--s {
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 50%);
+    cursor: ns-resize;
+  }
+  .rich-editor-body .editor-img-handle--sw {
+    left: 0;
+    bottom: 0;
+    cursor: nesw-resize;
+  }
+  .rich-editor-body .editor-img-handle--w {
+    left: 0;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    cursor: ew-resize;
+  }
+  .rich-editor-body .editor-img-rotate-handle {
+    position: absolute;
+    left: 50%;
+    top: -26px;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--foreground));
+    background: hsl(var(--background));
+    cursor: grab;
+    padding: 0;
+    margin: 0;
+    z-index: 13;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    box-sizing: border-box;
+  }
+  .rich-editor-body .editor-img-rotate-handle:active {
+    cursor: grabbing;
+  }
+  .rich-editor-body .editor-img-rotate-handle::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 0;
+    height: 12px;
+    border-left: 1px solid hsl(var(--foreground));
+    transform: translateX(-50%);
+    margin-top: 0;
+    pointer-events: none;
+  }
+
+  /* Article body links – make them look like real links */
+  .news-article-body a {
+    @apply text-accent underline underline-offset-2 font-medium;
+  }
+
+  .news-article-body a:hover {
+    @apply text-accent/80;
+  }
+
   @media (max-width: 768px) {
     .news-article-body .news-image--left,
     .news-article-body .news-image--right {
@@ -209,6 +430,14 @@
       max-width: 100%;
       margin-right: 0;
       margin-left: 0;
+    }
+    .news-article-body figure.editor-inline-figure[data-editor-img-wrap="left"],
+    .news-article-body figure.editor-inline-figure[data-editor-img-wrap="right"] {
+      float: none;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+      max-width: 100%;
     }
   }
 

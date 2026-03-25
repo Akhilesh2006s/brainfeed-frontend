@@ -1,9 +1,11 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import heroImg from "@/assets/55qKRMnw401SpsX2.webp.jpg.jpeg";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 const HeroSection = () => {
   const sectionRef = useRef<HTMLElement>(null);
+  const { settings } = useSiteSettings();
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -12,6 +14,15 @@ const HeroSection = () => {
 
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
   const backgroundScale = useTransform(scrollYProgress, [0, 1], [1, 1.12]);
+
+  const hero = settings?.homeHero;
+  const bg = hero?.backgroundImageUrl?.trim() || heroImg;
+  const eyebrow = hero?.eyebrow || "Since 2009 — Trusted by 40,000+ schools";
+  const title = hero?.title || "Today's Readers are";
+  const titleAccent = hero?.titleAccent || "Tomorrow's Leaders";
+  const subtitle1 =
+    hero?.subtitle1 ||
+    "India's premier educational monthly — nurturing 200,000+ young minds with five specialized publications.";
 
   return (
     <section
@@ -22,7 +33,7 @@ const HeroSection = () => {
       <motion.div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url(${heroImg})`,
+          backgroundImage: `url(${bg})`,
           y: backgroundY,
           scale: backgroundScale,
         }}
@@ -40,38 +51,22 @@ const HeroSection = () => {
           className="space-y-3 sm:space-y-4 md:space-y-5 max-w-xl w-full text-left"
         >
           <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] sm:tracking-[0.24em] text-white">
-            Since 2009 — Trusted by 40,000+ schools
+            {eyebrow}
           </p>
 
           <h1 className="font-serif text-[1.75rem] leading-tight sm:text-[2.25rem] md:text-[2.75rem] lg:text-[3rem] text-white font-bold">
-            Today&apos;s Readers are{" "}
+            {title}{" "}
             <span className="text-[#ff5c35] italic font-serif">
-              Tomorrow&apos;s Leaders
+              {titleAccent}
             </span>
             .
           </h1>
 
           <p className="text-[13px] sm:text-sm md:text-base text-white/95 font-sans leading-relaxed max-w-lg">
-            India&apos;s premier educational monthly — nurturing 200,000+ young
-            minds with five specialized publications.
-          </p>
-
-          <p className="text-[13px] sm:text-sm md:text-base text-white/90 font-sans leading-relaxed max-w-lg">
-            Brainfeed brings educators, parents and students one step
-            closer—covering board exams, NEP 2020, classroom practices and
-            wellbeing in a single, beautifully curated reading experience.
+            {subtitle1}
           </p>
 
           <div className="flex flex-col gap-3 pt-1 w-full max-w-[280px] sm:max-w-[320px]">
-            <motion.a
-              href="/subscribe"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#ff5c35] px-6 py-3.5 min-h-[48px] text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-md"
-            >
-              Subscribe Now
-              <span className="text-base translate-y-[1px]">→</span>
-            </motion.a>
             <motion.a
               href="/subscribe"
               whileHover={{ scale: 1.02 }}

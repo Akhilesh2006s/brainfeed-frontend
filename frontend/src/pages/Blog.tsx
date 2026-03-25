@@ -6,6 +6,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Search, Calendar, ArrowRight, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { buildNewsPath } from "@/lib/seo";
+import { getCategoryPillClass, getCategoryTheme } from "@/lib/categoryTheme";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
@@ -202,10 +204,10 @@ const Blog = () => {
                       className="mb-12 md:mb-16"
                     >
                       <Link
-                        to={`/news/${featuredPost.id}`}
+                        to={buildNewsPath(featuredPost.title, featuredPost.id)}
                         className="group block rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-xl hover:border-accent/30 transition-all duration-300 p-6 sm:p-8 md:p-10"
                       >
-                        <span className="inline-block px-2.5 py-1 rounded-full bg-accent/15 text-accent text-[10px] font-semibold uppercase tracking-wider mb-3">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider mb-3 ${getCategoryPillClass(featuredPost.category || "")}`}>
                           {featuredPost.category}
                         </span>
                         <h2 className="font-serif text-2xl md:text-3xl text-foreground leading-tight group-hover:text-accent transition-colors">
@@ -214,12 +216,25 @@ const Blog = () => {
                         <p className="mt-3 text-muted-foreground font-sans leading-relaxed line-clamp-2">
                           {featuredPost.excerpt}
                         </p>
-                        <div className="mt-5 flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                          <span className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {featuredPost.date}
-                          </span>
-                          <span>{featuredPost.readTime}</span>
+                        <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-sans">
+                          {(() => {
+                            const th = getCategoryTheme(featuredPost.category || "");
+                            return (
+                              <>
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${th.metaBg} ${th.metaText}`}
+                                >
+                                  <Calendar className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                                  {featuredPost.date}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 font-semibold ${th.metaBg} ${th.metaText}`}
+                                >
+                                  {featuredPost.readTime}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
                         <span className="inline-flex items-center gap-1 mt-4 text-accent text-xs font-semibold uppercase tracking-wider group-hover:gap-2 transition-all">
                           Read more
@@ -253,10 +268,10 @@ const Blog = () => {
                       className="group"
                     >
                       <Link
-                        to={`/news/${post.id}`}
+                        to={buildNewsPath(post.title, post.id)}
                         className="block h-full rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-lg hover:border-accent/30 transition-all duration-300 p-5 sm:p-6"
                       >
-                        <span className="inline-block px-2.5 py-1 rounded-full bg-accent/15 text-accent text-[10px] font-semibold uppercase tracking-wider mb-2">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider mb-2 ${getCategoryPillClass(post.category || "")}`}>
                           {post.category}
                         </span>
                         <h3 className="font-serif text-lg sm:text-xl text-foreground leading-snug line-clamp-2 group-hover:text-accent transition-colors">
@@ -265,12 +280,25 @@ const Blog = () => {
                         <p className="mt-2 text-sm text-muted-foreground line-clamp-2 font-sans">
                           {post.excerpt}
                         </p>
-                        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground font-sans">
-                          <span className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {post.date}
-                          </span>
-                          <span>{post.readTime}</span>
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs font-sans">
+                          {(() => {
+                            const th = getCategoryTheme(post.category || "");
+                            return (
+                              <>
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${th.metaBg} ${th.metaText}`}
+                                >
+                                  <Calendar className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                                  {post.date}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-1 font-semibold ${th.metaBg} ${th.metaText}`}
+                                >
+                                  {post.readTime}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
                         <span className="inline-flex items-center gap-1 mt-4 text-accent text-xs font-semibold uppercase tracking-wider group-hover:gap-2 transition-all">
                           Read more

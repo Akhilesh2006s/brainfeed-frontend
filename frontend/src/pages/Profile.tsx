@@ -105,7 +105,7 @@ const Profile = () => {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
       return;
     }
     if (user) {
@@ -303,6 +303,14 @@ const Profile = () => {
                     {mockSubscriptions.map((sub) => {
                       const cfg = statusConfig[sub.status];
                       const Icon = cfg.Icon;
+                      const isDelivered = sub.status === "delivered" || sub.status === "expired";
+                      const statusLine =
+                        !isDelivered && sub.nextIssue
+                          ? sub.nextIssue
+                          : !isDelivered
+                          ? "Order confirmed – awaiting next dispatch."
+                          : sub.lastDelivered || "Subscription cycle completed.";
+
                       return (
                         <div
                           key={sub.id}
@@ -311,7 +319,7 @@ const Profile = () => {
                           <div className="mt-0.5">
                             <Package className="h-4 w-4 text-accent" />
                           </div>
-                          <div className="flex-1 space-y-1">
+                          <div className="flex-1 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               <div>
                                 <p className="text-sm font-semibold text-foreground">
@@ -328,14 +336,11 @@ const Profile = () => {
                                 {cfg.label}
                               </span>
                             </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                            <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                               <span>Order ID: {sub.orderId}</span>
                               <span>
-                                {sub.status === "processing" && sub.nextIssue
-                                  ? sub.nextIssue
-                                  : sub.status === "active" && sub.nextIssue
-                                  ? sub.nextIssue
-                                  : sub.lastDelivered}
+                                {isDelivered ? "Order details: " : "Order status: "}
+                                {statusLine}
                               </span>
                             </div>
                           </div>
