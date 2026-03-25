@@ -95,6 +95,8 @@ const DEFAULT_ORIGINS = [
   "https://brainfeed-frontend.vercel.app",
   "https://brainfeed-frontend-shgo.vercel.app",
   "https://brainfeed-frontend-eight.vercel.app",
+  "https://brainfeedmagazine.com",
+  "https://www.brainfeedmagazine.com",
   "http://localhost:5173",
   "http://localhost:8080",
   "http://127.0.0.1:5173",
