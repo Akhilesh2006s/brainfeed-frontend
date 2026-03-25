@@ -14,13 +14,18 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "https://brainfeed-backend-production-f9a0.up.railway.app",
+        target: "https://brainfeed-backend-production-ab6d.up.railway.app",
         changeOrigin: true,
         secure: true,
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // NOTE: `componentTagger()` can be memory-hungry on Windows; keep it opt-in.
+  // Enable only if you explicitly set VITE_ENABLE_TAGGER=1
+  plugins: [
+    react(),
+    mode === "development" && process.env.VITE_ENABLE_TAGGER === "1" && componentTagger(),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

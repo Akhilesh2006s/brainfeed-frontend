@@ -6,15 +6,111 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCart } from "@/context/CartContext";
+import { buildApiUrl } from "@/lib/apiUrl";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const formatRupees = (amount: number) =>
   amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+
+function loadRazorpayScript(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(Boolean(window.Razorpay)));
+      existing.addEventListener("error", () => resolve(false));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(Boolean(window.Razorpay));
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 const Checkout = () => {
   const { items, subtotal } = useCart();
   const navigate = useNavigate();
   const hasItems = items.length > 0;
+  const [isPaying, setIsPaying] = useState(false);
+  const orderLabel = useMemo(() => (items.length === 1 ? items[0].name : `Brainfeed order (${items.length} items)`), [items]);
+
+  async function handleCheckout() {
+    try {
+      setIsPaying(true);
+
+      const ok = await loadRazorpayScript();
+      if (!ok || !window.Razorpay) {
+        toast.error("Failed to load payment gateway. Please try again.");
+        return;
+      }
+
+      const amountPaise = Math.round(subtotal * 100);
+
+      const orderRes = await fetch(buildApiUrl("/payments/razorpay/order"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amountPaise,
+          currency: "INR",
+          receipt: `bf_${Date.now()}`,
+          notes: {
+            items: items.map((i) => `${i.name}×${i.quantity}`).join(", "),
+          },
+        }),
+      });
+
+      const orderJson = await orderRes.json().catch(() => ({}));
+      if (!orderRes.ok) {
+        toast.error(orderJson?.error || "Failed to start checkout");
+        return;
+      }
+
+      const keyFromEnv = (import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined)?.trim();
+      const key = keyFromEnv || orderJson.keyId;
+      if (!key) {
+        toast.error("Payment gateway key is missing. Set VITE_RAZORPAY_KEY_ID.");
+        return;
+      }
+
+      const rzp = new window.Razorpay({
+        key,
+        amount: orderJson.amount,
+        currency: orderJson.currency,
+        name: "Brainfeed",
+        description: orderLabel,
+        order_id: orderJson.orderId,
+        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+          const verifyRes = await fetch(buildApiUrl("/payments/razorpay/verify"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(response),
+          });
+          const verifyJson = await verifyRes.json().catch(() => ({}));
+          if (!verifyRes.ok || !verifyJson?.ok) {
+            toast.error(verifyJson?.error || "Payment verification failed");
+            return;
+          }
+          toast.success("Payment successful!");
+          navigate("/subscribe");
+        },
+        theme: { color: "#f97316" },
+      });
+
+      rzp.open();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Checkout failed");
+    } finally {
+      setIsPaying(false);
+    }
+  }
 
   if (!hasItems) {
     return (
@@ -118,8 +214,10 @@ const Checkout = () => {
                   <Button
                     type="button"
                     className="w-full rounded-full text-xs font-semibold uppercase tracking-[0.18em]"
+                    onClick={handleCheckout}
+                    disabled={isPaying}
                   >
-                    Proceed to payment gateway
+                    {isPaying ? "Opening checkout..." : "Proceed to checkout"}
                   </Button>
                 </div>
               </ScrollReveal>
