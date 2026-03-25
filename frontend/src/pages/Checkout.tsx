@@ -42,8 +42,53 @@ const Checkout = () => {
   const [isPaying, setIsPaying] = useState(false);
   const orderLabel = useMemo(() => (items.length === 1 ? items[0].name : `Brainfeed order (${items.length} items)`), [items]);
 
+  const [details, setDetails] = useState({
+    name: "",
+    address: "",
+    pin: "",
+    mobile: "",
+    landline: "",
+    email: "",
+    website: "",
+    institution: "",
+  });
+
+  function validateDetails() {
+    const requiredFields: Array<{ key: keyof typeof details; label: string }> = [
+      { key: "name", label: "Name" },
+      { key: "address", label: "Address" },
+      { key: "pin", label: "Pin" },
+      { key: "mobile", label: "Mobile No." },
+      { key: "landline", label: "Land Line No." },
+      { key: "email", label: "Email" },
+      { key: "website", label: "Website" },
+      { key: "institution", label: "Name of the Institution" },
+    ];
+
+    for (const f of requiredFields) {
+      const value = String(details[f.key] || "").trim();
+      if (!value) {
+        toast.error(`Please enter ${f.label}.`);
+        const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-checkout-field="${f.key}"]`);
+        el?.focus();
+        return false;
+      }
+    }
+
+    const email = details.email.trim();
+    // Simple email guard (browser validation isn't triggered because the button is type="button")
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email.");
+      document.querySelector<HTMLInputElement>(`[data-checkout-field="email"]`)?.focus();
+      return false;
+    }
+
+    return true;
+  }
+
   async function handleCheckout() {
     try {
+      if (!validateDetails()) return;
       setIsPaying(true);
 
       const ok = await loadRazorpayScript();
@@ -62,6 +107,9 @@ const Checkout = () => {
           currency: "INR",
           receipt: `bf_${Date.now()}`,
           notes: {
+            customerName: details.name.trim(),
+            customerEmail: details.email.trim(),
+            customerMobile: details.mobile.trim(),
             items: items.map((i) => `${i.name}×${i.quantity}`).join(", "),
           },
         }),
@@ -100,6 +148,11 @@ const Checkout = () => {
           }
           toast.success("Payment successful!");
           navigate("/subscribe");
+        },
+        prefill: {
+          name: details.name.trim(),
+          email: details.email.trim(),
+          contact: details.mobile.trim(),
         },
         theme: { color: "#f97316" },
       });
@@ -164,20 +217,73 @@ const Checkout = () => {
                     Please fill in all fields so our team can process your subscription and delivery.
                   </p>
                   <div className="space-y-3">
-                    <Input placeholder="Name *" required className="h-9 text-sm" />
+                    <Input
+                      data-checkout-field="name"
+                      placeholder="Name *"
+                      required
+                      className="h-9 text-sm"
+                      value={details.name}
+                      onChange={(e) => setDetails((d) => ({ ...d, name: e.target.value }))}
+                    />
                     <Textarea
+                      data-checkout-field="address"
                       placeholder="Address *"
                       required
                       className="min-h-[80px] text-sm resize-none"
+                      value={details.address}
+                      onChange={(e) => setDetails((d) => ({ ...d, address: e.target.value }))}
                     />
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <Input placeholder="Pin *" required className="h-9 text-sm sm:w-1/3" />
-                      <Input placeholder="Mobile No. *" required className="h-9 text-sm flex-1" />
+                      <Input
+                        data-checkout-field="pin"
+                        placeholder="Pin *"
+                        required
+                        className="h-9 text-sm sm:w-1/3"
+                        value={details.pin}
+                        onChange={(e) => setDetails((d) => ({ ...d, pin: e.target.value }))}
+                      />
+                      <Input
+                        data-checkout-field="mobile"
+                        placeholder="Mobile No. *"
+                        required
+                        className="h-9 text-sm flex-1"
+                        value={details.mobile}
+                        onChange={(e) => setDetails((d) => ({ ...d, mobile: e.target.value }))}
+                      />
                     </div>
-                    <Input placeholder="Land Line No. *" required className="h-9 text-sm" />
-                    <Input placeholder="Email *" type="email" required className="h-9 text-sm" />
-                    <Input placeholder="Website *" required className="h-9 text-sm" />
-                    <Input placeholder="Name of the Institution *" required className="h-9 text-sm" />
+                    <Input
+                      data-checkout-field="landline"
+                      placeholder="Land Line No. *"
+                      required
+                      className="h-9 text-sm"
+                      value={details.landline}
+                      onChange={(e) => setDetails((d) => ({ ...d, landline: e.target.value }))}
+                    />
+                    <Input
+                      data-checkout-field="email"
+                      placeholder="Email *"
+                      type="email"
+                      required
+                      className="h-9 text-sm"
+                      value={details.email}
+                      onChange={(e) => setDetails((d) => ({ ...d, email: e.target.value }))}
+                    />
+                    <Input
+                      data-checkout-field="website"
+                      placeholder="Website *"
+                      required
+                      className="h-9 text-sm"
+                      value={details.website}
+                      onChange={(e) => setDetails((d) => ({ ...d, website: e.target.value }))}
+                    />
+                    <Input
+                      data-checkout-field="institution"
+                      placeholder="Name of the Institution *"
+                      required
+                      className="h-9 text-sm"
+                      value={details.institution}
+                      onChange={(e) => setDetails((d) => ({ ...d, institution: e.target.value }))}
+                    />
                   </div>
                 </div>
               </ScrollReveal>
