@@ -2263,6 +2263,7 @@ app.get("/api/articles", async (req, res) => {
         imageUrl: p.featuredImageUrl,
         imageAlt: p.featuredImageAlt || "",
         title: p.title,
+        subtitle: p.subtitle || "",
         excerpt: p.excerpt || p.subtitle || "",
         date: p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "",
         category: p.category,

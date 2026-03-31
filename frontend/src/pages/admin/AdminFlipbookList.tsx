@@ -11,6 +11,7 @@ type Flipbook = {
   title: string;
   slug: string;
   pdfUrl?: string;
+  showOnEmagazines?: boolean;
   updatedAt?: string;
   issueDate?: string;
   createdAt?: string;
@@ -54,6 +55,30 @@ const AdminFlipbookList = () => {
     }
   };
 
+  const toggleEmagVisibility = async (id: string, current: boolean) => {
+    if (!token) return;
+    try {
+      const res = await fetch(buildApiUrl(`/admin/flipbooks/${id}`), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ showOnEmagazines: !current }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || "Failed to update visibility");
+      setItems((prev) =>
+        prev.map((row) =>
+          row._id === id ? { ...row, showOnEmagazines: !current } : row,
+        ),
+      );
+      toast.success(!current ? "Visible on E-Magazines." : "Hidden from E-Magazines.");
+    } catch {
+      toast.error("Could not update E-Magazines visibility.");
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -77,6 +102,7 @@ const AdminFlipbookList = () => {
                 <th className="text-left p-3 font-medium">Title</th>
                 <th className="text-left p-3 font-medium">Issue month</th>
                 <th className="text-left p-3 font-medium">Slug (URL)</th>
+                <th className="text-left p-3 font-medium">E-Magazines</th>
                 <th className="text-left p-3 font-medium">Updated</th>
                 <th className="text-right p-3 font-medium">Actions</th>
               </tr>
@@ -93,6 +119,17 @@ const AdminFlipbookList = () => {
                         : "—"}
                   </td>
                   <td className="p-3 text-muted-foreground font-mono text-xs">/flipbook/{fb.slug}</td>
+                  <td className="p-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                        fb.showOnEmagazines !== false
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {fb.showOnEmagazines !== false ? "Visible" : "Hidden"}
+                    </span>
+                  </td>
                   <td className="p-3 text-muted-foreground">
                     {fb.updatedAt ? new Date(fb.updatedAt).toLocaleDateString() : "—"}
                   </td>
@@ -108,6 +145,14 @@ const AdminFlipbookList = () => {
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => toggleEmagVisibility(fb._id, fb.showOnEmagazines !== false)}
+                      >
+                        {fb.showOnEmagazines !== false ? "Hide" : "Show"}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

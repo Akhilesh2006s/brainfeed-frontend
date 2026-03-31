@@ -104,7 +104,15 @@ const LATEST_MAGAZINE_OPTIONS = [
   { id: "primary-i", label: "Brainfeed Primary I" },
   { id: "primary-ii", label: "Brainfeed Primary II" },
   { id: "junior", label: "Brainfeed Junior" },
+  { id: "high", label: "Brainfeed High" },
 ];
+
+/** Pad saved id list to 4 slots for the admin UI (order = home page left → right). */
+function latestMagazineIdsToSlots(ids: string[] | undefined): [string, string, string, string] {
+  const a = [...(ids || [])];
+  while (a.length < 4) a.push("");
+  return a.slice(0, 4) as [string, string, string, string];
+}
 
 const AdminSiteSettings = () => {
   const { token, isAdmin } = useAdmin();
@@ -162,17 +170,6 @@ const AdminSiteSettings = () => {
   const addressText = useMemo(() => (data.contact?.addressLines || []).join("\n"), [data.contact?.addressLines]);
   const emailsText = useMemo(() => (data.contact?.emails || []).join("\n"), [data.contact?.emails]);
 
-  if (!isAdmin) {
-    return (
-      <div className="space-y-4">
-        <h1 className="font-serif text-2xl text-foreground">Site settings</h1>
-        <p className="text-sm text-muted-foreground max-w-xl">Only Admin users can edit site settings.</p>
-      </div>
-    );
-  }
-
-  if (loading) return <p className="text-muted-foreground">Loading…</p>;
-
   const save = async () => {
     if (!token) return;
     setSaving(true);
@@ -216,6 +213,36 @@ const AdminSiteSettings = () => {
       homeLayout: { ...(p.homeLayout || {}), ...patch },
     }));
   };
+
+  const magazineSlots = useMemo(
+    () => latestMagazineIdsToSlots(data.homeLayout?.latestMagazineIds),
+    [data.homeLayout?.latestMagazineIds],
+  );
+
+  const setMagazineSlot = (index: number, value: string) => {
+    const next = [...magazineSlots] as [string, string, string, string];
+    const trimmed = value.trim();
+    // Keep slots unique: selecting a magazine in one slot removes it from others.
+    if (trimmed) {
+      for (let i = 0; i < next.length; i++) {
+        if (i !== index && next[i] === trimmed) next[i] = "";
+      }
+    }
+    next[index] = trimmed;
+    // Preserve slot order (including intentional empty slots).
+    setHomeLayout({ latestMagazineIds: next });
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="space-y-4">
+        <h1 className="font-serif text-2xl text-foreground">Site settings</h1>
+        <p className="text-sm text-muted-foreground max-w-xl">Only Admin users can edit site settings.</p>
+      </div>
+    );
+  }
+
+  if (loading) return <p className="text-muted-foreground">Loading…</p>;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -447,19 +474,31 @@ const AdminSiteSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Latest Magazines section (choose order, up to 4)</Label>
-            <select
-              multiple
-              className="min-h-[120px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              value={data.homeLayout?.latestMagazineIds || []}
-              onChange={(e) => setHomeLayout({ latestMagazineIds: readMultiSelectValues(e.currentTarget).slice(0, 4) })}
-            >
-              {LATEST_MAGAZINE_OPTIONS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
+            <Label>Latest Magazines section (up to 4, order left → right)</Label>
+            <p className="text-xs text-muted-foreground">
+              Position 1 is the first card on the left on the home page, then 2, 3, 4. Choose &ldquo;— Skip —&rdquo; to leave a slot empty. No Ctrl/Cmd key needed.
+            </p>
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="text-xs font-medium text-muted-foreground shrink-0 w-full sm:w-28">
+                    Position {i + 1}
+                  </span>
+                  <select
+                    className="h-10 w-full flex-1 rounded-md border border-border bg-background px-3 text-sm"
+                    value={magazineSlots[i] || ""}
+                    onChange={(e) => setMagazineSlot(i, e.target.value)}
+                  >
+                    <option value="">— Skip —</option>
+                    {LATEST_MAGAZINE_OPTIONS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               ))}
-            </select>
+            </div>
           </div>
         </div>
       </section>

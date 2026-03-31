@@ -1,10 +1,12 @@
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import primaryICover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (2).jpeg";
 import mainCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM.jpeg";
 import juniorCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (1).jpeg";
 import primaryIICover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.31 AM.jpeg";
 import ScrollReveal from "./ScrollReveal";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 type Magazine = {
   id: string;
@@ -15,52 +17,75 @@ type Magazine = {
   cover: string;
 };
 
-const magazines: Magazine[] = [
-  {
-    id: "primary-i",
-    name: "Brainfeed Primary I",
-    edition: "Volume XI · Issue 8 · February 2026",
-    ageGroup: "For classes I & II · 6–8 years",
-    highlight: "A Day of Science – curiosity-led learning for young minds.",
-    cover: primaryICover,
-  },
-  {
-    id: "main",
-    name: "Brainfeed Magazine",
-    edition: "Volume XII · Issue 11 · February 2026",
-    ageGroup: "Educator Edition",
-    highlight: "Steeped in Sanskaar – spotlight on holistic school ecosystems.",
-    cover: mainCover,
-  },
-  {
-    id: "junior",
-    name: "Brainfeed Junior",
-    edition: "Volume X · Issue 8 · February 2026",
-    ageGroup: "For 3–6 age group",
-    highlight: "Growing Up – social and emotional milestones for early years.",
-    cover: juniorCover,
-  },
-  {
-    id: "primary-ii",
-    name: "Brainfeed Primary II",
-    edition: "Volume X · Issue 8 · February 2026",
-    ageGroup: "For classes III–V · 8–10 years",
-    highlight: "Indian Coast Guard Day – courage, service and the sea.",
-    cover: primaryIICover,
-  },
-];
-
 interface MagazineSectionProps {
   magazineIds?: string[];
 }
 
 const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
+  const [highCoverFromProducts, setHighCoverFromProducts] = useState("");
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/products?category=magazine`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: Array<{ name?: string; slug?: string; imageUrl?: string }>) => {
+        const list = Array.isArray(rows) ? rows : [];
+        const high = list.find((p) =>
+          /high/i.test(String(p?.name || "")) || /high/i.test(String(p?.slug || "")),
+        );
+        setHighCoverFromProducts(String(high?.imageUrl || "").trim());
+      })
+      .catch(() => setHighCoverFromProducts(""));
+  }, []);
+
+  const magazines: Magazine[] = [
+    {
+      id: "primary-i",
+      name: "Brainfeed Primary I",
+      edition: "Volume XI · Issue 8 · February 2026",
+      ageGroup: "For classes I & II · 6–8 years",
+      highlight: "A Day of Science – curiosity-led learning for young minds.",
+      cover: primaryICover,
+    },
+    {
+      id: "main",
+      name: "Brainfeed Magazine",
+      edition: "Volume XII · Issue 11 · February 2026",
+      ageGroup: "Educator Edition",
+      highlight: "Steeped in Sanskaar – spotlight on holistic school ecosystems.",
+      cover: mainCover,
+    },
+    {
+      id: "junior",
+      name: "Brainfeed Junior",
+      edition: "Volume X · Issue 8 · February 2026",
+      ageGroup: "For 3–6 age group",
+      highlight: "Growing Up – social and emotional milestones for early years.",
+      cover: juniorCover,
+    },
+    {
+      id: "primary-ii",
+      name: "Brainfeed Primary II",
+      edition: "Volume X · Issue 8 · February 2026",
+      ageGroup: "For classes III–V · 8–10 years",
+      highlight: "Indian Coast Guard Day – courage, service and the sea.",
+      cover: primaryIICover,
+    },
+    {
+      id: "high",
+      name: "Brainfeed High",
+      edition: "Volume X · Issue 8 · February 2026",
+      ageGroup: "For Grades VI - XII · 10 issues/year",
+      highlight: "A focused edition for teen learners with aspirational stories and skill-building content.",
+      cover: highCoverFromProducts || mainCover,
+    },
+  ];
+
   const magazineById = new Map(magazines.map((m) => [m.id, m]));
   const selected = (magazineIds || [])
     .map((id) => magazineById.get(id))
     .filter((m): m is Magazine => Boolean(m));
-  const fallback = magazines.filter((m) => !selected.some((s) => s.id === m.id));
-  const visibleMagazines = (selected.length ? [...selected, ...fallback] : magazines).slice(0, 4);
+  // Respect admin-configured order exactly (up to 4). If nothing configured, show default first 4.
+  const visibleMagazines = (selected.length ? selected : magazines).slice(0, 4);
 
   return (
     <section className="py-10 sm:py-12 md:py-16 lg:py-24 bg-secondary/60">

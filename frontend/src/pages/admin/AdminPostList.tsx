@@ -145,59 +145,9 @@ const AdminPostList = () => {
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[220px,minmax(0,1fr)] items-start">
-          <aside className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-4">
+        <div className="space-y-4">
+          <aside className="rounded-lg border border-border/60 bg-card/60 p-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                Status
-              </p>
-              <div className="space-y-1 mb-4">
-                {(
-                  [
-                    { id: "all" as const, label: "All posts" },
-                    { id: "published" as const, label: "Published" },
-                    { id: "draft" as const, label: "Drafts" },
-                  ] as const
-                ).map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setStatusFilter(s.id)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium ${
-                      statusFilter === s.id
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                Categories
-              </p>
-              <div className="space-y-1">
-                {NEWS_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setActiveCategory(cat)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium ${
-                      activeCategory === cat
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-border/60 pt-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                 Date range
               </p>
@@ -216,7 +166,7 @@ const AdminPostList = () => {
                     type="button"
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal min-h-10 px-3 py-2 h-auto",
+                      "w-full md:w-auto md:min-w-[280px] justify-start text-left font-normal min-h-10 px-3 py-2 h-auto",
                       !dateRangeApplied?.from && "text-muted-foreground",
                     )}
                   >
@@ -267,7 +217,7 @@ const AdminPostList = () => {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="w-full mt-2 text-xs h-8"
+                  className="mt-2 text-xs h-8"
                   onClick={() => {
                     setDateRangeApplied(undefined);
                     setDateRangeDraft(undefined);
@@ -277,6 +227,59 @@ const AdminPostList = () => {
                   Clear date filter
                 </Button>
               ) : null}
+            </div>
+          </aside>
+
+          <div className="grid gap-6 lg:grid-cols-[220px,minmax(0,1fr)] items-start">
+            <aside className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                Status
+              </p>
+              <div className="space-y-1 mb-4">
+                {(
+                  [
+                    { id: "all" as const, label: "All posts" },
+                    { id: "published" as const, label: "Published" },
+                    { id: "draft" as const, label: "Drafts" },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStatusFilter(s.id)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium ${
+                      statusFilter === s.id
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                Categories
+              </p>
+              <div className="space-y-1">
+                {NEWS_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium ${
+                      activeCategory === cat
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
             </div>
           </aside>
 
@@ -380,6 +383,7 @@ const AdminPostList = () => {
                 </tbody>
               </table>
             )}
+          </div>
           </div>
         </div>
       )}

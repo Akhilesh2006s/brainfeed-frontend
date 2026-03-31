@@ -13,6 +13,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 type NewsPost = {
   id: string;
   title: string;
+  subtitle?: string;
   content?: string;
   excerpt?: string;
   category?: string;
@@ -190,6 +191,11 @@ const NewsArticle = () => {
                   <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-foreground leading-tight">
                     {post.title}
                   </h1>
+                  {post.subtitle?.trim() ? (
+                    <p className="mt-3 text-base md:text-lg text-muted-foreground font-sans">
+                      {post.subtitle}
+                    </p>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground font-sans">
                     {post.category && (
                       <span

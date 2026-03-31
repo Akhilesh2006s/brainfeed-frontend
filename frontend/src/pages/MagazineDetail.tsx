@@ -69,6 +69,17 @@ const MAGAZINES: Record<string, MagazineConfig> = {
     details:
       "Illustrated, age-appropriate content that gently introduces young children to the world around them through stories and visuals.",
   },
+  high: {
+    id: "high",
+    name: "Brainfeed High",
+    price: 1800,
+    priceLabel: "₹1,800.00",
+    cover: mainCover,
+    blurb: "For classes VI–X · 11–16 years · 12 issues/year",
+    category: "High School Magazines",
+    details:
+      "A magazine focused on middle and high school learners with deep-dive topics, career awareness, current affairs, and skill-building content.",
+  },
 };
 
 const formatRupees = (amount: number) =>

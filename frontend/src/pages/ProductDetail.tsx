@@ -169,11 +169,9 @@ const ProductDetail = () => {
               <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-start">
                 <ScrollReveal direction="up" once>
                   <div
-                    className={`flex w-full max-w-[520px] mx-auto gap-4 items-start ${
-                      productImages.length > 1 ? "flex-col sm:flex-row" : ""
-                    }`}
+                    className="flex w-full max-w-[520px] mx-auto gap-4 items-start flex-col"
                   >
-                    <div className="flex-1 min-w-0 w-full border border-border/60 rounded-xl overflow-hidden bg-card shadow-sm order-1 sm:order-2">
+                    <div className="flex-1 min-w-0 w-full border border-border/60 rounded-xl overflow-hidden bg-card shadow-sm">
                       {productImages.length > 0 ? (
                         <img
                           src={productImages[selectedImage] ?? productImages[0]}
@@ -188,7 +186,7 @@ const ProductDetail = () => {
                     </div>
                     {productImages.length > 1 && (
                       <div
-                        className="flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:max-h-[min(70vh,560px)] sm:max-w-[4.5rem] shrink-0 w-full sm:w-auto justify-center sm:justify-start px-1 pb-1 sm:pb-0 -mx-1 sm:mx-0 order-2 sm:order-1"
+                        className="flex flex-row gap-2 overflow-x-auto shrink-0 w-full justify-center px-1 pb-1 -mx-1"
                         role="tablist"
                         aria-label="Product images"
                       >
