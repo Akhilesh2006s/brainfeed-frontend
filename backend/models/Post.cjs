@@ -42,6 +42,12 @@ const postSchema = new mongoose.Schema(
       role: { type: String, trim: true, default: "" },
     },
     views: { type: Number, default: 0 },
+    /** `draft` = admin-only until published */
+    status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "published",
+    },
   },
   { timestamps: true }
 );

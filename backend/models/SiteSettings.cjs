@@ -83,6 +83,9 @@ const siteSettingsSchema = new mongoose.Schema(
       regionEmail: { type: String, trim: true, default: "" },
       mapUrl: { type: String, trim: true, default: "" },
       mapEmbedUrl: { type: String, trim: true, default: "" },
+      /** Optional static image for “Find Us”; when set, Contact page shows this instead of the iframe embed. */
+      mapImageUrl: { type: String, trim: true, default: "" },
+      mapImageAlt: { type: String, trim: true, default: "" },
     },
   },
   { timestamps: true }

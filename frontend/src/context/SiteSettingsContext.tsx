@@ -52,6 +52,8 @@ export type SiteSettings = {
     regionEmail?: string;
     mapUrl?: string;
     mapEmbedUrl?: string;
+    mapImageUrl?: string;
+    mapImageAlt?: string;
   };
   about?: {
     heroEyebrow?: string;

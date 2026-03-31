@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { DEFAULT_TOP_BAR_LINKS } from "@/lib/topBarDefaults";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
@@ -45,6 +46,8 @@ type Settings = {
     regionEmail?: string;
     mapUrl?: string;
     mapEmbedUrl?: string;
+    mapImageUrl?: string;
+    mapImageAlt?: string;
   };
   about?: {
     heroEyebrow?: string;
@@ -78,6 +81,24 @@ type NewsOption = {
   category: string;
 };
 
+/** Parse admin textarea: one link per line, first `|` separates label and URL. */
+function parseTopBarLinksText(text: string): { label: string; url: string }[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((ln) => {
+      const pipe = ln.indexOf("|");
+      if (pipe === -1) return { label: ln, url: "" };
+      return { label: ln.slice(0, pipe).trim(), url: ln.slice(pipe + 1).trim() };
+    })
+    .filter((l) => l.label && l.url);
+}
+
+function topBarLinksToText(links: { label: string; url: string }[] | undefined): string {
+  return (links || []).map((l) => `${l.label}|${l.url}`).join("\n");
+}
+
 const LATEST_MAGAZINE_OPTIONS = [
   { id: "main", label: "Brainfeed Magazine" },
   { id: "primary-i", label: "Brainfeed Primary I" },
@@ -92,11 +113,13 @@ const AdminSiteSettings = () => {
   const [data, setData] = useState<Settings>({});
   const [uploadingHero, setUploadingHero] = useState(false);
   const [uploadingAboutImage, setUploadingAboutImage] = useState(false);
+  const [uploadingContactMap, setUploadingContactMap] = useState(false);
   const [aboutUploadKey, setAboutUploadKey] = useState<
     "heroImageUrl" | "aboutCoverMain" | "aboutCoverPrimary2" | "aboutCoverPrimary1" | "aboutCoverJunior"
   >("heroImageUrl");
   const [section, setSection] = useState<"home" | "topbar" | "footer" | "about" | "contact">("home");
   const [newsOptions, setNewsOptions] = useState<NewsOption[]>([]);
+  const [topLinksDraft, setTopLinksDraft] = useState("");
 
   useEffect(() => {
     if (!token || !isAdmin) return;
@@ -115,7 +138,7 @@ const AdminSiteSettings = () => {
 
   useEffect(() => {
     if (!token || !isAdmin) return;
-    fetch(`${API_BASE}/api/admin/posts?type=news`, {
+    fetch(`${API_BASE}/api/admin/posts?type=news&status=published`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : []))
@@ -130,10 +153,11 @@ const AdminSiteSettings = () => {
       .catch(() => setNewsOptions([]));
   }, [token, isAdmin]);
 
-  const topLinksText = useMemo(() => {
-    const links = data.topBar?.links || [];
-    return links.map((l) => `${l.label}|${l.url}`).join("\n");
-  }, [data.topBar?.links]);
+  useEffect(() => {
+    if (loading) return;
+    const links = data.topBar?.links?.length ? data.topBar.links : [...DEFAULT_TOP_BAR_LINKS];
+    setTopLinksDraft(topBarLinksToText(links));
+  }, [loading, data.topBar?.links]);
 
   const addressText = useMemo(() => (data.contact?.addressLines || []).join("\n"), [data.contact?.addressLines]);
   const emailsText = useMemo(() => (data.contact?.emails || []).join("\n"), [data.contact?.emails]);
@@ -153,14 +177,28 @@ const AdminSiteSettings = () => {
     if (!token) return;
     setSaving(true);
     try {
+      const parsed = parseTopBarLinksText(topLinksDraft);
+      const existing = data.topBar?.links || [];
+      const topBarLinks =
+        parsed.length > 0
+          ? parsed
+          : existing.length > 0
+            ? existing
+            : [...DEFAULT_TOP_BAR_LINKS];
+      const payload = {
+        ...data,
+        topBar: { ...(data.topBar || {}), links: topBarLinks },
+      };
       const res = await fetch(`${API_BASE}/api/admin/site-settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || "Failed to save");
       setData(j || {});
+      const savedLinks = j?.topBar?.links?.length ? j.topBar.links : [...DEFAULT_TOP_BAR_LINKS];
+      setTopLinksDraft(topBarLinksToText(savedLinks));
       toast.success("Site settings saved.");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save settings.");
@@ -431,20 +469,17 @@ const AdminSiteSettings = () => {
       <section className="rounded-xl border border-border/60 bg-card/60 p-4 md:p-5 space-y-4">
         <h2 className="font-serif text-lg text-foreground">Top bar</h2>
         <div className="space-y-2">
-          <Label>Links (one per line: Label|URL)</Label>
+          <Label>Partner sites (one per line: Label|URL)</Label>
+          <p className="text-xs text-muted-foreground">
+            Add as many links as you need. Each line: <code className="text-[11px] bg-muted px-1 rounded">Name|https://…</code> — only the first{" "}
+            <code className="text-[11px] bg-muted px-1 rounded">|</code> splits label and URL.
+          </p>
           <Textarea
-            value={topLinksText}
-            onChange={(e) => {
-              const lines = e.target.value.split("\n").map((s) => s.trim()).filter(Boolean);
-              const links = lines
-                .map((ln) => {
-                  const [label, url] = ln.split("|").map((x) => (x || "").trim());
-                  return { label, url };
-                })
-                .filter((l) => l.label && l.url);
-              setData((p) => ({ ...p, topBar: { ...(p.topBar || {}), links } }));
-            }}
-            className="min-h-[90px]"
+            value={topLinksDraft}
+            onChange={(e) => setTopLinksDraft(e.target.value)}
+            placeholder={`Michampsindia|https://michampsindia.com/\nHighereducationplus|https://highereducationplus.com/\nAsli Prep|https://www.asliprep.com/\nEttechX|https://www.ettechx.com/`}
+            className="min-h-[140px] font-mono text-sm"
+            spellCheck={false}
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -908,6 +943,98 @@ const AdminSiteSettings = () => {
             />
           </div>
         </div>
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Find Us — map</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload a screenshot or graphic for a cleaner look, or use the live Google embed below. If an image is set,
+              it replaces the embed. Use zoom 15–17 in Google Maps when saving embed URLs so streets and labels show
+              clearly.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Static map image (optional)</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploadingContactMap}
+                onClick={() => document.getElementById("contact-map-upload-input")?.click()}
+              >
+                {uploadingContactMap ? "Uploading…" : "Upload map image"}
+              </Button>
+              {data.contact?.mapImageUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() =>
+                    setData((p) => ({ ...p, contact: { ...(p.contact || {}), mapImageUrl: "" } }))
+                  }
+                >
+                  Remove image
+                </Button>
+              )}
+            </div>
+            <Input
+              id="contact-map-upload-input"
+              type="file"
+              accept="image/*"
+              disabled={uploadingContactMap}
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !token) return;
+                setUploadingContactMap(true);
+                try {
+                  const form = new FormData();
+                  form.append("image", file);
+                  const res = await fetch(`${API_BASE}/api/admin/site-settings/contact-map-image`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: form,
+                  });
+                  const j = await res.json();
+                  if (!res.ok) throw new Error(j?.error || "Upload failed");
+                  if (j.url) {
+                    setData((p) => ({
+                      ...p,
+                      contact: { ...(p.contact || {}), mapImageUrl: j.url },
+                    }));
+                    toast.success("Map image uploaded. Save settings to publish.");
+                  }
+                } catch (err: any) {
+                  toast.error(err?.message || "Failed to upload map image.");
+                } finally {
+                  setUploadingContactMap(false);
+                  e.target.value = "";
+                }
+              }}
+            />
+            {data.contact?.mapImageUrl && (
+              <div className="rounded-md border border-border/60 overflow-hidden max-w-md">
+                <img
+                  src={data.contact.mapImageUrl}
+                  alt=""
+                  className="w-full h-auto max-h-48 object-cover object-center"
+                />
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Map image description (accessibility)</Label>
+            <Input
+              value={data.contact?.mapImageAlt || ""}
+              onChange={(e) =>
+                setData((p) => ({ ...p, contact: { ...(p.contact || {}), mapImageAlt: e.target.value } }))
+              }
+              placeholder="Brainfeed office location on a map"
+              className="h-11"
+            />
+          </div>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Map URL (link)</Label>
@@ -927,7 +1054,7 @@ const AdminSiteSettings = () => {
               onChange={(e) =>
                 setData((p) => ({ ...p, contact: { ...(p.contact || {}), mapEmbedUrl: e.target.value } }))
               }
-              placeholder="https://www.google.com/maps?q=...&output=embed"
+              placeholder="https://www.google.com/maps?q=...&z=16&output=embed"
               className="h-11"
             />
           </div>

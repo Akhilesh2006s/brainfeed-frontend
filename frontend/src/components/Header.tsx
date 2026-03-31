@@ -27,6 +27,8 @@ const navItems = [
   { label: "Home", href: "/" },
   { label: "About Us", href: "/about" },
   { label: "News", dropdown: newsCategories },
+  { label: "Gallery", href: "/gallery" },
+  { label: "E-Magazines", href: "/e-magazines" },
   { label: "Contact Us", href: "/contact" },
 ];
 

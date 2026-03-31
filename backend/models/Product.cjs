@@ -16,6 +16,15 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true }, // in rupees
     currency: { type: String, default: "INR" },
     imageUrl: { type: String, trim: true, default: "" },
+    /** Extra product photos (e.g. feature callouts), max 4 — shown as thumbnails on product page */
+    galleryImageUrls: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (v) => !Array.isArray(v) || v.length <= 4,
+        message: "At most 4 gallery images allowed",
+      },
+    },
     active: { type: Boolean, default: true },
     order: { type: Number, default: 0 },
   },

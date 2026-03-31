@@ -12,6 +12,8 @@ type Flipbook = {
   slug: string;
   pdfUrl?: string;
   updatedAt?: string;
+  issueDate?: string;
+  createdAt?: string;
 };
 
 const AdminFlipbookList = () => {
@@ -73,6 +75,7 @@ const AdminFlipbookList = () => {
             <thead className="bg-muted/50 border-b border-border/60">
               <tr>
                 <th className="text-left p-3 font-medium">Title</th>
+                <th className="text-left p-3 font-medium">Issue month</th>
                 <th className="text-left p-3 font-medium">Slug (URL)</th>
                 <th className="text-left p-3 font-medium">Updated</th>
                 <th className="text-right p-3 font-medium">Actions</th>
@@ -82,6 +85,13 @@ const AdminFlipbookList = () => {
               {items.map((fb) => (
                 <tr key={fb._id} className="border-b border-border/40 hover:bg-muted/30">
                   <td className="p-3 font-medium max-w-[200px] truncate">{fb.title}</td>
+                  <td className="p-3 text-muted-foreground text-xs">
+                    {fb.issueDate
+                      ? new Date(fb.issueDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })
+                      : fb.createdAt
+                        ? new Date(fb.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })
+                        : "—"}
+                  </td>
                   <td className="p-3 text-muted-foreground font-mono text-xs">/flipbook/{fb.slug}</td>
                   <td className="p-3 text-muted-foreground">
                     {fb.updatedAt ? new Date(fb.updatedAt).toLocaleDateString() : "—"}

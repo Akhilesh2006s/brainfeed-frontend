@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAdmin } from "@/context/AdminContext";
 import { useEffect } from "react";
-import { Newspaper, PlusCircle, LogOut, List, Plus, Users as UsersIcon, Package, Settings, BookOpen } from "lucide-react";
+import { Newspaper, PlusCircle, LogOut, List, Plus, Users as UsersIcon, Package, Settings, BookOpen, Images, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const AdminLayout = () => {
@@ -16,10 +16,12 @@ const AdminLayout = () => {
   const isPagesActive = pathname.startsWith("/admin/pages");
   const isFlipbooksActive = pathname.startsWith("/admin/flipbooks");
   const isSiteSettingsActive = pathname.startsWith("/admin/site-settings");
+  const isGalleryActive = pathname.startsWith("/admin/gallery");
   const isSubscriptionsActive = pathname.startsWith("/admin/subscriptions");
   const isProductsActive = pathname.startsWith("/admin/products");
   const isUsersActive = pathname.startsWith("/admin/users");
   const isSignupUsersActive = pathname.startsWith("/admin/signup-users");
+  const isNewsletterSubscribersActive = pathname.startsWith("/admin/newsletter-subscribers");
 
   const baseNavClasses =
     "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors";
@@ -102,6 +104,13 @@ const AdminLayout = () => {
                 <Settings className="h-4 w-4" />
                 Site settings
               </Link>
+              <Link
+                to="/admin/gallery"
+                className={`${baseNavClasses} mt-1 ${isGalleryActive ? activeClasses : inactiveClasses}`}
+              >
+                <Images className="h-4 w-4" />
+                Gallery
+              </Link>
             </div>
           )}
           <div className="pt-2 mt-2 border-t border-border/60">
@@ -144,17 +153,34 @@ const AdminLayout = () => {
                 <UsersIcon className="h-4 w-4" />
                 Manage users
               </Link>
+              <Link
+                to="/admin/newsletter-subscribers"
+                className={`${baseNavClasses} mt-1 ${isNewsletterSubscribersActive ? activeClasses : inactiveClasses}`}
+              >
+                <Mail className="h-4 w-4" />
+                Newsletter emails
+              </Link>
             </div>
           )}
         </nav>
         <div className="p-3 border-t border-border/60">
-          <Link to="/" className="text-xs text-muted-foreground hover:text-foreground block mb-2">
-            ← Back to site
-          </Link>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { logout(); navigate("/admin/login", { replace: true }); }}>
-            <LogOut className="h-4 w-4" />
-            Log out
-          </Button>
+          <div className="flex items-center justify-between gap-2">
+            <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">
+              ← Back to site
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 px-3"
+              onClick={() => {
+                logout();
+                navigate("/admin/login", { replace: true });
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Log out</span>
+            </Button>
+          </div>
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-6">

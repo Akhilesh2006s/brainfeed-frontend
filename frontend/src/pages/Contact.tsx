@@ -12,6 +12,24 @@ import { Button } from "@/components/ui/button";
 import heroEducation from "@/assets/hero-education.jpg";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
 
+/** Google embeds that are zoomed in too far (high z) often look sparse; nudge zoom out for clearer context. */
+function normalizeGoogleMapsEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes("google.") || !u.pathname.includes("maps")) return url;
+    const z = u.searchParams.get("z");
+    if (!z) return url;
+    const zi = parseInt(z, 10);
+    if (Number.isFinite(zi) && zi > 18) {
+      u.searchParams.set("z", "17");
+      return u.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 const Contact = () => {
   const { settings } = useSiteSettings();
   const [formData, setFormData] = useState({
@@ -68,15 +86,24 @@ const Contact = () => {
   const whatsapp = contact?.whatsapp || "918448737157";
   const phoneAlt = contact?.phoneAlt || "";
   const emails = contact?.emails?.length ? contact.emails : ["info@brainfeedmagazine.com", "kakani2406@gmail.com"];
-  const regionTitle = contact?.regionTitle || "Punjab Region";
-  const regionName = contact?.regionName || "Katyayani Singh";
-  const regionWhatsapp = contact?.regionWhatsapp || whatsapp;
-  const regionEmail = contact?.regionEmail || "katyayanis2019@gmail.com";
+  // Use ?? / trim only — do not use || here: cleared admin fields are "" and must stay hidden (not replaced by demo text).
+  const regionTitle = String(contact?.regionTitle ?? "").trim();
+  const regionName = String(contact?.regionName ?? "").trim();
+  const regionWhatsapp = String(contact?.regionWhatsapp ?? "").trim();
+  const regionEmail = String(contact?.regionEmail ?? "").trim();
+  const hasRegionBlock = !!(regionTitle || regionName || regionWhatsapp || regionEmail);
   const mapUrl =
     contact?.mapUrl ||
-    "https://www.google.com/maps?ll=17.473071,78.357614&z=22&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038";
+    "https://www.google.com/maps?ll=17.473071,78.357614&z=16&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038";
   const mapEmbedUrl =
-    contact?.mapEmbedUrl || "https://www.google.com/maps?q=17.473071,78.357614&z=22&output=embed";
+    contact?.mapEmbedUrl || "https://www.google.com/maps?q=17.473071,78.357614&z=16&output=embed";
+  const mapImageUrl = String(contact?.mapImageUrl ?? "").trim();
+  const mapImageAlt = String(contact?.mapImageAlt ?? "").trim() || "Map showing our location";
+
+  const mapEmbedUrlNormalized = useMemo(
+    () => normalizeGoogleMapsEmbedUrl(mapEmbedUrl),
+    [mapEmbedUrl],
+  );
 
   const addressHtml = useMemo(() => addressLines.join("<br />"), [addressLines]);
 
@@ -181,34 +208,42 @@ const Contact = () => {
                     </div>
                   </div>
                 </ScrollReveal>
-                <ScrollReveal direction="up" delay={0.25} once>
-                  <div className="pt-4 border-t border-border/50">
-                    <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-2">
-                      {regionTitle}
-                    </p>
-                    <p className="text-muted-foreground font-sans text-sm">
-                      {regionName}
-                    </p>
-                    <p className="text-muted-foreground font-sans text-sm mt-0.5">
-                      <a
-                        href={`https://wa.me/${regionWhatsapp}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-accent transition-colors"
-                      >
-                        +{regionWhatsapp}
-                      </a>
-                    </p>
-                    <p className="text-muted-foreground font-sans text-sm mt-0.5">
-                      <a
-                        href={`mailto:${regionEmail}`}
-                        className="hover:text-accent transition-colors break-all"
-                      >
-                        {regionEmail}
-                      </a>
-                    </p>
-                  </div>
-                </ScrollReveal>
+                {hasRegionBlock && (
+                  <ScrollReveal direction="up" delay={0.25} once>
+                    <div className="pt-4 border-t border-border/50">
+                      {regionTitle && (
+                        <p className="font-semibold text-foreground text-sm uppercase tracking-wider mb-2">
+                          {regionTitle}
+                        </p>
+                      )}
+                      {regionName && (
+                        <p className="text-muted-foreground font-sans text-sm">{regionName}</p>
+                      )}
+                      {regionWhatsapp && (
+                        <p className="text-muted-foreground font-sans text-sm mt-0.5">
+                          <a
+                            href={`https://wa.me/${regionWhatsapp}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-accent transition-colors"
+                          >
+                            +{regionWhatsapp}
+                          </a>
+                        </p>
+                      )}
+                      {regionEmail && (
+                        <p className="text-muted-foreground font-sans text-sm mt-0.5">
+                          <a
+                            href={`mailto:${regionEmail}`}
+                            className="hover:text-accent transition-colors break-all"
+                          >
+                            {regionEmail}
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                  </ScrollReveal>
+                )}
               </div>
 
               {/* Get In Touch form */}
@@ -314,17 +349,36 @@ const Contact = () => {
               </a>
             </div>
           </ScrollReveal>
-          <div className="w-full aspect-[16/10] sm:aspect-[2/1] md:aspect-[21/9] min-h-[240px] max-h-[50vh]">
-            <iframe
-              title="Brainfeed Magazine location - Hyderabad"
-              src={mapEmbedUrl}
-              width="100%"
-              height="100%"
-              className="block w-full h-full border-0"
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+          <div className="container pb-10 md:pb-14">
+            <div className="w-full min-h-[260px] max-h-[min(56vh,520px)] aspect-[16/10] sm:aspect-[2/1] md:aspect-[21/9] rounded-xl overflow-hidden border border-border/50 bg-muted/40 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)]">
+              {mapImageUrl ? (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full h-full min-h-[260px] relative group"
+                >
+                  <img
+                    src={mapImageUrl}
+                    alt={mapImageAlt}
+                    className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                    loading="lazy"
+                  />
+                  <span className="sr-only">Open location in Google Maps</span>
+                </a>
+              ) : (
+                <iframe
+                  title="Brainfeed Magazine location"
+                  src={mapEmbedUrlNormalized}
+                  width="100%"
+                  height="100%"
+                  className="block w-full h-full min-h-[260px] border-0"
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              )}
+            </div>
           </div>
         </section>
       </main>

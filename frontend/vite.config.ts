@@ -13,9 +13,10 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "https://brainfeed-backend-production-ab6d.up.railway.app",
+        // Dev: local backend (`cd backend && npm start`, default PORT=3001). For Railway, set VITE_API_URL in `.env.development` instead of using the proxy.
+        target: "http://localhost:3001",
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

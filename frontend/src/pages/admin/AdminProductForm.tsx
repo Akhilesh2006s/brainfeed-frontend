@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAdmin } from "@/context/AdminContext";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,21 @@ const AdminProductForm = () => {
   const [active, setActive] = useState(true);
   const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  /** Up to 4 extra gallery images (URLs + optional file per slot) */
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(["", "", "", ""]);
+  const [galleryFiles, setGalleryFiles] = useState<(File | null)[]>([null, null, null, null]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
+
+  const galleryBlobUrls = useMemo(
+    () => galleryFiles.map((f) => (f ? URL.createObjectURL(f) : null)),
+    [galleryFiles],
+  );
+  useEffect(() => {
+    return () => {
+      galleryBlobUrls.forEach((u) => u && URL.revokeObjectURL(u));
+    };
+  }, [galleryBlobUrls]);
 
   useEffect(() => {
     if (!isEdit || !id || !token) return;
@@ -67,6 +80,9 @@ const AdminProductForm = () => {
         setOrder(p.order ?? 0);
         setActive(p.active !== false);
         setImageUrl(p.imageUrl || "");
+        const g = Array.isArray(p.galleryImageUrls) ? p.galleryImageUrls.map((u: string) => String(u || "").trim()) : [];
+        setGalleryUrls([0, 1, 2, 3].map((i) => g[i] || ""));
+        setGalleryFiles([null, null, null, null]);
       })
       .catch(() => toast.error("Failed to load product"))
       .finally(() => setLoading(false));
@@ -100,6 +116,10 @@ const AdminProductForm = () => {
     }
     if (imageFile) {
       formData.set("image", imageFile);
+    }
+    formData.set("galleryImageUrls", JSON.stringify(galleryUrls.map((u) => u.trim())));
+    for (let i = 0; i < 4; i++) {
+      if (galleryFiles[i]) formData.append(`gallery${i}`, galleryFiles[i]);
     }
 
     setSaving(true);
@@ -234,7 +254,7 @@ const AdminProductForm = () => {
           />
         </div>
         <div className="space-y-2">
-          <Label>Product image</Label>
+          <Label>Main product image</Label>
           {imageUrl && (
             <div className="mb-2">
               <img
@@ -260,6 +280,83 @@ const AdminProductForm = () => {
             placeholder="https://…"
             className="h-9 mt-1"
           />
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label>Extra gallery images (optional, max 4)</Label>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Shown below the main image on the product page (Amazon-style thumbnails). Upload files or
+              paste URLs — up to four.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((slot) => {
+              const preview = galleryBlobUrls[slot] || galleryUrls[slot] || "";
+              return (
+                <div key={slot} className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <p className="text-[11px] font-medium text-muted-foreground">Image {slot + 1}</p>
+                  {preview ? (
+                    <img
+                      src={preview}
+                      alt=""
+                      className="w-full aspect-square object-cover rounded-2xl border border-border/50"
+                    />
+                  ) : (
+                    <div className="w-full aspect-square rounded-2xl border border-dashed border-border/60 flex items-center justify-center text-[10px] text-muted-foreground">
+                      Empty
+                    </div>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    className="h-9 text-xs"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      setGalleryFiles((prev) => {
+                        const next = [...prev];
+                        next[slot] = f;
+                        return next;
+                      });
+                      e.target.value = "";
+                    }}
+                  />
+                  <Input
+                    value={galleryUrls[slot]}
+                    onChange={(e) =>
+                      setGalleryUrls((prev) => {
+                        const next = [...prev];
+                        next[slot] = e.target.value;
+                        return next;
+                      })
+                    }
+                    placeholder="Image URL (optional)"
+                    className="h-9 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-full text-xs text-destructive"
+                    onClick={() => {
+                      setGalleryUrls((prev) => {
+                        const next = [...prev];
+                        next[slot] = "";
+                        return next;
+                      });
+                      setGalleryFiles((prev) => {
+                        const next = [...prev];
+                        next[slot] = null;
+                        return next;
+                      });
+                    }}
+                  >
+                    Clear slot
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <input

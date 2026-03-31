@@ -26,11 +26,19 @@ const AdminFlipbookForm = () => {
   const { token } = useAdmin();
   const navigate = useNavigate();
 
+  const defaultIssueMonth = () => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
+  };
+
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  /** YYYY-MM — groups flipbooks on /e-magazines */
+  const [issueMonth, setIssueMonth] = useState(() => defaultIssueMonth());
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [existingPdfUrl, setExistingPdfUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showOnEmagazines, setShowOnEmagazines] = useState(true);
   const [loading, setLoading] = useState(isEdit);
 
   useEffect(() => {
@@ -42,11 +50,18 @@ const AdminFlipbookForm = () => {
     if (isEdit && id && token) {
       fetch(buildApiUrl(`/admin/flipbooks/${id}`), { headers: { Authorization: `Bearer ${token}` } })
         .then((res) => (res.ok ? res.json() : null))
-        .then((fb: { title?: string; slug?: string; pdfUrl?: string } | null) => {
+        .then((fb: { title?: string; slug?: string; pdfUrl?: string; issueDate?: string; showOnEmagazines?: boolean } | null) => {
           if (!fb) return;
           setTitle(String(fb.title || ""));
           setSlug(String(fb.slug || ""));
           setExistingPdfUrl(String(fb.pdfUrl || ""));
+          setShowOnEmagazines(fb.showOnEmagazines !== false);
+          if (fb.issueDate) {
+            const d = new Date(fb.issueDate);
+            if (!Number.isNaN(d.getTime())) {
+              setIssueMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+            }
+          }
         })
         .catch(() => toast.error("Failed to load flipbook"))
         .finally(() => setLoading(false));
@@ -70,6 +85,8 @@ const AdminFlipbookForm = () => {
         const fd = new FormData();
         fd.append("title", title.trim());
         fd.append("slug", slug.trim() || slugFromTitle(title));
+        fd.append("issueMonth", issueMonth.trim() || defaultIssueMonth());
+        fd.append("showOnEmagazines", showOnEmagazines ? "true" : "false");
         fd.append("pdf", pdfFile!);
         const res = await fetch(buildApiUrl("/admin/flipbooks"), {
           method: "POST",
@@ -96,6 +113,8 @@ const AdminFlipbookForm = () => {
         body: JSON.stringify({
           title: title.trim(),
           slug: slug.trim() || slugFromTitle(title),
+          issueMonth: issueMonth.trim() || defaultIssueMonth(),
+          showOnEmagazines,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -158,6 +177,35 @@ const AdminFlipbookForm = () => {
             className="mt-1.5 font-mono text-sm"
           />
           <p className="text-xs text-muted-foreground mt-1">Public URL: /flipbook/{slug || slugFromTitle(title || "title")}</p>
+        </div>
+        <div>
+          <Label htmlFor="fb-issue-month">Issue month (E-magazines)</Label>
+          <Input
+            id="fb-issue-month"
+            type="month"
+            value={issueMonth}
+            onChange={(e) => setIssueMonth(e.target.value)}
+            className="mt-1.5 max-w-xs"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Used to group this edition under the correct month on the public{" "}
+            <a href="/e-magazines" className="text-accent underline underline-offset-2" target="_blank" rel="noreferrer">
+              E-Magazines
+            </a>{" "}
+            page.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="fb-show-emags"
+            type="checkbox"
+            checked={showOnEmagazines}
+            onChange={(e) => setShowOnEmagazines(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          <Label htmlFor="fb-show-emags" className="text-sm text-muted-foreground">
+            Show this flipbook on the public E-Magazines page
+          </Label>
         </div>
         <div>
           <Label htmlFor="fb-pdf">PDF file {!isEdit ? "(required)" : "(optional — replace)"}</Label>

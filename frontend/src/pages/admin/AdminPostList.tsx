@@ -32,6 +32,7 @@ type Post = {
   category: string;
   views: number;
   createdAt: string;
+  status?: string;
   publishedBy?: {
     name?: string;
     email?: string;
@@ -76,6 +77,8 @@ const AdminPostList = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("All");
+  /** all | published | draft — drafts are hidden from the public site */
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const { token } = useAdmin();
   /** Applied filter sent to the API (sidebar always reflects this after Apply). */
   const [dateRangeApplied, setDateRangeApplied] = useState<DateRange | undefined>(undefined);
@@ -88,6 +91,9 @@ const AdminPostList = () => {
     setLoading(true);
     const qs = new URLSearchParams();
     qs.set("type", "news");
+    if (statusFilter !== "all") {
+      qs.set("status", statusFilter);
+    }
     const q = dateRangeToQuery(dateRangeApplied);
     if (q) {
       qs.set("start", q.start);
@@ -102,7 +108,7 @@ const AdminPostList = () => {
       })
       .catch(() => setPosts([]))
       .finally(() => setLoading(false));
-  }, [token, dateRangeApplied]);
+  }, [token, dateRangeApplied, statusFilter]);
 
   const handleDelete = async (id: string) => {
     if (!token || !confirm("Delete this post?")) return;
@@ -133,14 +139,42 @@ const AdminPostList = () => {
         <h1 className="font-serif text-2xl text-foreground">{title}</h1>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        View news articles and filter by category. Choose a start and end date (inclusive) to match the Date column;
-        Apply runs the request. Clear removes the date filter.
+        View news articles and filter by category or status (drafts are not visible on the public site). Choose a
+        start and end date (inclusive) to match the Date column; Apply runs the request. Clear removes the date filter.
       </p>
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[220px,minmax(0,1fr)] items-start">
           <aside className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                Status
+              </p>
+              <div className="space-y-1 mb-4">
+                {(
+                  [
+                    { id: "all" as const, label: "All posts" },
+                    { id: "published" as const, label: "Published" },
+                    { id: "draft" as const, label: "Drafts" },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStatusFilter(s.id)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium ${
+                      statusFilter === s.id
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                 Categories
@@ -256,6 +290,8 @@ const AdminPostList = () => {
                     </p>
                     <p>Try another range or clear the date filter to see all posts.</p>
                   </>
+                ) : statusFilter === "draft" ? (
+                  <p>No drafts yet. Use <strong>Add news</strong> and click <strong>Save draft</strong>, or open a draft from when you saved earlier.</p>
                 ) : (
                   <p>No posts yet. Add one from the sidebar.</p>
                 )}
@@ -270,6 +306,7 @@ const AdminPostList = () => {
                 <thead className="bg-muted/50 border-b border-border/60">
                   <tr>
                     <th className="text-left p-3 font-medium">Title</th>
+                    <th className="text-left p-3 font-medium">Status</th>
                     <th className="text-left p-3 font-medium">Category</th>
                     <th className="text-left p-3 font-medium">Editor</th>
                     <th className="text-left p-3 font-medium">Views</th>
@@ -284,6 +321,15 @@ const AdminPostList = () => {
                       className="border-b border-border/40 hover:bg-muted/30"
                     >
                       <td className="p-3 font-medium max-w-[200px] truncate">{post.title}</td>
+                      <td className="p-3">
+                        {post.status === "draft" ? (
+                          <span className="inline-flex rounded-md bg-amber-500/15 text-amber-900 dark:text-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            Draft
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Published</span>
+                        )}
+                      </td>
                       <td className="p-3 text-muted-foreground">{post.category}</td>
                       <td className="p-3 text-muted-foreground text-xs">
                         {post.publishedBy?.name?.trim() || post.publishedBy?.email || "—"}
@@ -299,15 +345,21 @@ const AdminPostList = () => {
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link
-                            to={buildNewsPath(post.title, post._id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Button variant="ghost" size="sm" className="h-8" aria-label="View article">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
+                          {post.status !== "draft" ? (
+                            <Link
+                              to={buildNewsPath(post.title, post._id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button variant="ghost" size="sm" className="h-8" aria-label="View article">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          ) : (
+                            <span className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground" title="Publish the article to view on site">
+                              <Eye className="h-4 w-4 opacity-40" />
+                            </span>
+                          )}
                           <Link to={`/admin/posts/${post._id}/edit?type=news`}>
                             <Button variant="ghost" size="sm" className="h-8">
                               <Pencil className="h-4 w-4" />

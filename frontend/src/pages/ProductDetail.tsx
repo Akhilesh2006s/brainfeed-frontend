@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
@@ -23,6 +23,7 @@ type Product = {
   oldPrice?: number;
   currency?: string;
   imageUrl?: string;
+  galleryImageUrls?: string[];
 };
 
 const formatRupees = (amount: number, currency = "INR") =>
@@ -46,6 +47,37 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [selectedImage, setSelectedImage] = useState(0);
+
+  const productImages = useMemo(() => {
+    if (!product) return [];
+    const main = product.imageUrl?.trim();
+    const extras = (product.galleryImageUrls || []).map((u) => String(u || "").trim()).filter(Boolean);
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    if (main) {
+      ordered.push(main);
+      seen.add(main);
+    }
+    for (const u of extras) {
+      if (!seen.has(u)) {
+        ordered.push(u);
+        seen.add(u);
+      }
+    }
+    return ordered;
+  }, [product]);
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [product?.id]);
+
+  useEffect(() => {
+    setSelectedImage((i) => {
+      if (productImages.length === 0) return 0;
+      return Math.min(i, productImages.length - 1);
+    });
+  }, [productImages.length]);
 
   useEffect(() => {
     if (!slug) return;
@@ -136,16 +168,50 @@ const ProductDetail = () => {
             {!loading && product && (
               <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-start">
                 <ScrollReveal direction="up" once>
-                  <div className="w-full max-w-[520px] mx-auto border border-border/60 rounded-xl overflow-hidden bg-card shadow-sm">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-auto object-contain bg-white"
-                      />
-                    ) : (
-                      <div className="aspect-[3/4] flex items-center justify-center text-muted-foreground text-sm">
-                        No image available
+                  <div
+                    className={`flex w-full max-w-[520px] mx-auto gap-4 items-start ${
+                      productImages.length > 1 ? "flex-col sm:flex-row" : ""
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0 w-full border border-border/60 rounded-xl overflow-hidden bg-card shadow-sm order-1 sm:order-2">
+                      {productImages.length > 0 ? (
+                        <img
+                          src={productImages[selectedImage] ?? productImages[0]}
+                          alt={product.name}
+                          className="w-full h-auto object-contain bg-white min-h-[200px]"
+                        />
+                      ) : (
+                        <div className="aspect-[3/4] flex items-center justify-center text-muted-foreground text-sm">
+                          No image available
+                        </div>
+                      )}
+                    </div>
+                    {productImages.length > 1 && (
+                      <div
+                        className="flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:max-h-[min(70vh,560px)] sm:max-w-[4.5rem] shrink-0 w-full sm:w-auto justify-center sm:justify-start px-1 pb-1 sm:pb-0 -mx-1 sm:mx-0 order-2 sm:order-1"
+                        role="tablist"
+                        aria-label="Product images"
+                      >
+                        {productImages.map((url, idx) => (
+                          <button
+                            key={`${url}-${idx}`}
+                            type="button"
+                            role="tab"
+                            aria-selected={selectedImage === idx}
+                            onClick={() => setSelectedImage(idx)}
+                            className={`shrink-0 rounded-2xl border-2 bg-white p-0.5 transition-all ${
+                              selectedImage === idx
+                                ? "border-accent shadow-[0_0_0_1px_hsl(var(--accent))]"
+                                : "border-border/60 hover:border-border"
+                            }`}
+                          >
+                            <img
+                              src={url}
+                              alt=""
+                              className="h-12 w-12 sm:h-14 sm:w-14 object-cover rounded-[0.85rem]"
+                            />
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>

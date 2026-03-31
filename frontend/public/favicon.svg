@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Brainfeed Magazine">
+  <!-- Brand: purple rounded badge + yellow mark (matches site header) -->
+  <rect width="32" height="32" rx="8" fill="#5c2d6b"/>
+  <!-- Stylized “b” for brainfeed -->
+  <path
+    fill="#f5dc28"
+    d="M9.5 8.25h5.4c2.9 0 4.7 1.55 4.7 3.95 0 1.35-.65 2.45-1.75 3.05 1.15.65 1.85 1.85 1.85 3.35 0 2.85-2.35 4.65-5.55 4.65H9.5V8.25zm2.55 2.35v4.55h3c1.45 0 2.25-.75 2.25-2 0-1.25-.85-2.05-2.25-2.05h-3zm0 6.85v4.95h3.35c1.55 0 2.35-.65 2.35-2.05 0-1.35-.85-2.05-2.35-2.05h-3.35z"
+  />
+</svg>

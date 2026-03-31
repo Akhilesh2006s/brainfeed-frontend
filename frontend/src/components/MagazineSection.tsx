@@ -121,7 +121,7 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
                     to={`/magazine/${magazine.id}`}
                     className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-foreground transition-colors group-hover:text-accent"
                   >
-                    View Issue
+                    Quick view
                     <span className="inline text-base leading-none translate-y-[1px]" aria-hidden>
                       ↗
                     </span>

@@ -1,9 +1,41 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import ScrollReveal from "./ScrollReveal";
+import { buildApiUrl } from "@/lib/apiUrl";
 
 const Newsletter = () => {
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const em = email.trim();
+    if (!em) {
+      toast.error("Please enter your email.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(buildApiUrl("/newsletter/subscribe"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: em, source: "homepage" }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; alreadySubscribed?: boolean };
+      if (!res.ok) throw new Error(j?.error || "Could not subscribe.");
+      if (j.alreadySubscribed) {
+        toast.success("You're already subscribed — thank you!");
+      } else {
+        toast.success("Thanks! You're subscribed to our newsletter.");
+      }
+      setEmail("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not subscribe.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <section className="py-12 sm:py-16 md:py-20 bg-primary relative overflow-hidden">
@@ -38,11 +70,12 @@ const Newsletter = () => {
           />
           <motion.button
             type="submit"
-            className="min-h-[48px] px-8 py-3.5 bg-accent text-accent-foreground text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-accent/90 transition-colors"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            disabled={submitting}
+            className="min-h-[48px] px-8 py-3.5 bg-accent text-accent-foreground text-xs font-semibold uppercase tracking-widest rounded-full hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:pointer-events-none"
+            whileHover={{ scale: submitting ? 1 : 1.03 }}
+            whileTap={{ scale: submitting ? 1 : 0.97 }}
           >
-            Subscribe
+            {submitting ? "…" : "Subscribe"}
           </motion.button>
         </motion.form>
       </div>

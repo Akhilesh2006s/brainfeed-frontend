@@ -1,0 +1,15 @@
+{
+  "name": "Brainfeed Magazine",
+  "short_name": "Brainfeed",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#5c2d6b",
+  "background_color": "#5c2d6b",
+  "display": "browser"
+}

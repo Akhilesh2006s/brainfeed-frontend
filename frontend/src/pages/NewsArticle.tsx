@@ -25,10 +25,6 @@ type NewsPost = {
   metaDescription?: string;
   /** SEO / topic tags — rendered as meta keywords + optional on-page list */
   tags?: string[];
-  publishedBy?: {
-    name?: string;
-    email?: string;
-  };
 };
 
 type NewsSummary = {
@@ -216,13 +212,6 @@ const NewsArticle = () => {
                       >
                         <Clock className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                         {post.readTime}
-                      </span>
-                    )}
-                    {(post.publishedBy?.name || post.publishedBy?.email) && (
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold text-[10px] ${categoryTheme.metaBg} ${categoryTheme.metaText}`}
-                      >
-                        By {post.publishedBy?.name?.trim() || post.publishedBy?.email}
                       </span>
                     )}
                   </div>

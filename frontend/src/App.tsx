@@ -44,6 +44,10 @@ import AdminSiteSettings from "./pages/admin/AdminSiteSettings";
 import PageView from "./pages/PageView";
 import AdminFlipbookList from "./pages/admin/AdminFlipbookList";
 import AdminFlipbookForm from "./pages/admin/AdminFlipbookForm";
+import AdminGallery from "./pages/admin/AdminGallery";
+import AdminNewsletterSubscribers from "./pages/admin/AdminNewsletterSubscribers";
+import Gallery from "./pages/Gallery";
+import EMagazines from "./pages/EMagazines";
 import NotFound from "./pages/NotFound";
 import { useEffect, useRef, lazy, Suspense } from "react";
 
@@ -251,6 +255,8 @@ const App = () => (
                 <Route path="/news/:slug/:id" element={<NewsArticle />} />
                 <Route path="/subscribe" element={<Subscribe />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/gallery" element={<Gallery />} />
+                <Route path="/e-magazines" element={<EMagazines />} />
                 <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/shipping-policy" element={<ShippingPolicy />} />
@@ -283,6 +289,9 @@ const App = () => (
                 <Route path="/admin/signup-users" element={<AdminLayout />}>
                   <Route index element={<AdminSignupUserList />} />
                 </Route>
+                <Route path="/admin/newsletter-subscribers" element={<AdminLayout />}>
+                  <Route index element={<AdminNewsletterSubscribers />} />
+                </Route>
                 <Route path="/admin/pages" element={<AdminLayout />}>
                   <Route index element={<AdminPageList />} />
                   <Route path="new" element={<AdminPageForm />} />
@@ -295,6 +304,9 @@ const App = () => (
                 </Route>
                 <Route path="/admin/site-settings" element={<AdminLayout />}>
                   <Route index element={<AdminSiteSettings />} />
+                </Route>
+                <Route path="/admin/gallery" element={<AdminLayout />}>
+                  <Route index element={<AdminGallery />} />
                 </Route>
                 <Route path="/page/:slug" element={<PageView />} />
                 <Route path="/:slug" element={<PageView />} />

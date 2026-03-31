@@ -19,6 +19,8 @@ const Flipbook = require("./models/Flipbook.cjs");
 const Subscription = require("./models/Subscription.cjs");
 const Product = require("./models/Product.cjs");
 const SiteSettings = require("./models/SiteSettings.cjs");
+const GalleryItem = require("./models/GalleryItem.cjs");
+const NewsletterSubscriber = require("./models/NewsletterSubscriber.cjs");
 
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "brainfeed-jwt-secret-change-in-production";
@@ -58,6 +60,18 @@ const uploadProductImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: imageFilter,
 });
+/** Main product image + up to 4 optional gallery slots (gallery0…gallery3) */
+const uploadProductWithGallery = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFilter,
+}).fields([
+  { name: "image", maxCount: 1 },
+  { name: "gallery0", maxCount: 1 },
+  { name: "gallery1", maxCount: 1 },
+  { name: "gallery2", maxCount: 1 },
+  { name: "gallery3", maxCount: 1 },
+]);
 const pdfFilter = (req, file, cb) => {
   if (file.mimetype === "application/pdf") cb(null, true);
   else cb(new Error("Only PDF files are allowed"), false);
@@ -264,6 +278,9 @@ app.get("/api/capabilities", (req, res) => {
     flipbooks: true,
     adminFlipbooks: "/api/admin/flipbooks",
     publicFlipbooks: "/api/flipbooks",
+    gallery: true,
+    publicGallery: "/api/gallery",
+    newsletterSubscribe: "/api/newsletter/subscribe",
   });
 });
 
@@ -276,9 +293,10 @@ const mongooseOptions = {
 
 if (mongoUri) {
   mongoose.connect(mongoUri, mongooseOptions)
-    .then((conn) => {
+    .then(async (conn) => {
       const dbName = conn.connection?.db?.databaseName || "Brainfeed";
       console.log("MongoDB connected to database:", dbName);
+      await ensurePartnerTopBarLinksInDb();
     })
     .catch((err) => {
       console.error("MongoDB connection failed:", err.message);
@@ -337,7 +355,13 @@ async function adminAuthMiddleware(req, res, next) {
     req.adminName = getAdminDisplayName(admin);
     next();
   } catch (e) {
-    console.error("Admin auth error:", e);
+    if (e?.name === "JsonWebTokenError" && e?.message === "invalid signature") {
+      console.warn(
+        "Admin JWT invalid signature — token was signed with a different JWT_SECRET (e.g. old Railway token, new local .env). Log out at /admin and sign in again."
+      );
+    } else {
+      console.error("Admin auth error:", e);
+    }
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 }
@@ -387,6 +411,30 @@ async function uploadPdfToCloudinary(buffer, mimeType, folder) {
   });
 }
 
+/** Partner sites in the top bar — keep in sync with `frontend/src/lib/topBarDefaults.ts`. */
+const DEFAULT_PARTNER_TOP_BAR_LINKS = [
+  { label: "Michampsindia", url: "https://michampsindia.com/" },
+  { label: "Highereducationplus", url: "https://highereducationplus.com/" },
+  { label: "Asli Prep", url: "https://www.asliprep.com/" },
+  { label: "EttechX", url: "https://www.ettechx.com/" },
+];
+
+/** Pad 1–3 stored links with defaults so the bar always lists all four partners. */
+function mergeTopBarLinksWithDefaults(stored) {
+  const def = DEFAULT_PARTNER_TOP_BAR_LINKS.map((l) => ({ ...l }));
+  const valid = Array.isArray(stored)
+    ? stored
+        .map((l) => ({
+          label: String(l?.label || "").trim(),
+          url: String(l?.url || "").trim(),
+        }))
+        .filter((l) => l.label && l.url)
+    : [];
+  if (valid.length === 0) return def;
+  if (valid.length >= 4) return valid.slice(0, 24);
+  return def.map((d, i) => (valid[i] ? { label: valid[i].label, url: valid[i].url } : { ...d }));
+}
+
 function getDefaultSiteSettings() {
   return {
     key: "default",
@@ -409,11 +457,7 @@ function getDefaultSiteSettings() {
       latestMagazineIds: [],
     },
     topBar: {
-      links: [
-        { label: "Michampsindia", url: "https://michampsindia.com/" },
-        { label: "Higher Education Plus", url: "https://highereducationplus.com/" },
-        { label: "School Search", url: "https://brainfeedmagazine.com/schools-search/" },
-      ],
+      links: DEFAULT_PARTNER_TOP_BAR_LINKS.map((l) => ({ ...l })),
       social: {
         facebook: "https://www.facebook.com/brainfeededumag",
         twitter: "https://twitter.com/brainfeededumag",
@@ -473,13 +517,15 @@ function getDefaultSiteSettings() {
       whatsapp: "918448737157",
       phoneAlt: "",
       emails: ["info@brainfeedmagazine.com", "kakani2406@gmail.com"],
-      regionTitle: "Punjab Region",
-      regionName: "Katyayani Singh",
-      regionWhatsapp: "918448737157",
-      regionEmail: "katyayanis2019@gmail.com",
+      regionTitle: "",
+      regionName: "",
+      regionWhatsapp: "",
+      regionEmail: "",
       mapUrl:
-        "https://www.google.com/maps?ll=17.473071,78.357614&z=22&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038",
-      mapEmbedUrl: "https://www.google.com/maps?q=17.473071,78.357614&z=22&output=embed",
+        "https://www.google.com/maps?ll=17.473071,78.357614&z=16&t=m&hl=en&gl=IN&mapclient=embed&cid=16509507856910290038",
+      mapEmbedUrl: "https://www.google.com/maps?q=17.473071,78.357614&z=16&output=embed",
+      mapImageUrl: "",
+      mapImageAlt: "",
     },
   };
 }
@@ -489,6 +535,41 @@ async function getOrCreateSiteSettings() {
   if (existing) return existing;
   const created = await SiteSettings.create(getDefaultSiteSettings());
   return created.toJSON();
+}
+
+/** If top-bar links are missing or only partially saved, persist merged defaults. */
+async function ensurePartnerTopBarLinksInDb() {
+  try {
+    if (mongoose.connection.readyState !== 1) return;
+    const doc = await SiteSettings.findOne({ key: "default" });
+    if (!doc) return;
+    const links = doc.topBar?.links;
+    const merged = mergeTopBarLinksWithDefaults(links);
+    const valid = Array.isArray(links)
+      ? links
+          .map((l) => ({
+            label: String(l?.label || "").trim(),
+            url: String(l?.url || "").trim(),
+          }))
+          .filter((l) => l.label && l.url)
+      : [];
+    if (valid.length === 0) {
+      await SiteSettings.updateOne(
+        { key: "default" },
+        { $set: { "topBar.links": merged } },
+      );
+      console.log("Site settings: saved default partner top-bar links (none were stored).");
+      return;
+    }
+    if (valid.length < 4) {
+      await SiteSettings.updateOne({ key: "default" }, { $set: { "topBar.links": merged } });
+      console.log(
+        `Site settings: merged partial top-bar links (${valid.length}) with defaults to ${merged.length} partners.`,
+      );
+    }
+  } catch (e) {
+    console.warn("ensurePartnerTopBarLinksInDb:", e?.message || e);
+  }
 }
 
 app.post("/api/auth/signup", async (req, res) => {
@@ -785,6 +866,29 @@ function slugifyProduct(text) {
     .replace(/^-|-$/g, "") || "product";
 }
 
+async function resolveProductGalleryFromRequest(body, files) {
+  let urls = [];
+  try {
+    urls = JSON.parse(String(body.galleryImageUrls || "[]"));
+  } catch {
+    urls = [];
+  }
+  if (!Array.isArray(urls)) urls = [];
+  urls = urls.map((u) => String(u || "").trim()).slice(0, 4);
+  while (urls.length < 4) urls.push("");
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    let u = urls[i];
+    const f = files?.[`gallery${i}`]?.[0];
+    if (f) {
+      const r = await uploadToCloudinary(f.buffer, f.mimetype, "brainfeed-products");
+      u = r.secure_url;
+    }
+    if (u) out.push(u);
+  }
+  return out.slice(0, 4);
+}
+
 // Public products endpoint used by frontend Subscribe page
 app.get("/api/products", async (req, res) => {
   try {
@@ -807,6 +911,7 @@ app.get("/api/products", async (req, res) => {
         price: p.price,
         currency: p.currency,
         imageUrl: p.imageUrl,
+        galleryImageUrls: Array.isArray(p.galleryImageUrls) ? p.galleryImageUrls.slice(0, 4) : [],
         order: p.order,
       }))
     );
@@ -819,7 +924,8 @@ app.get("/api/products", async (req, res) => {
 app.get("/api/site-settings", async (req, res) => {
   try {
     const settings = await getOrCreateSiteSettings();
-    res.json(settings);
+    const links = mergeTopBarLinksWithDefaults(settings.topBar?.links);
+    res.json({ ...settings, topBar: { ...settings.topBar, links } });
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to load site settings" });
   }
@@ -829,7 +935,8 @@ app.get("/api/site-settings", async (req, res) => {
 app.get("/api/admin/site-settings", adminAuthMiddleware, requireAdminRole("admin"), async (req, res) => {
   try {
     const settings = await getOrCreateSiteSettings();
-    res.json(settings);
+    const links = mergeTopBarLinksWithDefaults(settings.topBar?.links);
+    res.json({ ...settings, topBar: { ...settings.topBar, links } });
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to load site settings" });
   }
@@ -888,6 +995,25 @@ app.post(
       res.status(201).json({ url: r.secure_url });
     } catch (e) {
       res.status(500).json({ error: e.message || "Failed to upload image" });
+    }
+  },
+);
+
+// Static “Find Us” map image for Contact page (optional; replaces iframe when set)
+app.post(
+  "/api/admin/site-settings/contact-map-image",
+  adminAuthMiddleware,
+  requireAdminRole("admin"),
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Image file is required" });
+      }
+      const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-contact-map");
+      res.status(201).json({ url: r.secure_url });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to upload map image" });
     }
   },
 );
@@ -972,6 +1098,19 @@ app.get("/api/admin/products", adminAuthMiddleware, requireAdminRole("admin"), a
           active: true,
           order: 1,
         },
+        {
+          category: "magazine",
+          name: "Brainfeed High – Annual",
+          description: "Brainfeed High magazine for 10–16 age group.",
+          badge: "",
+          tag: "Magazines",
+          price: 1800,
+          oldPrice: 2200,
+          currency: "INR",
+          imageUrl: "",
+          active: true,
+          order: 2,
+        },
       ].map((p) => ({
         ...p,
         slug: slugifyProduct(p.name),
@@ -1001,10 +1140,11 @@ app.post(
   "/api/admin/products",
   adminAuthMiddleware,
   requireAdminRole("admin"),
-  uploadProductImage.single("image"),
+  uploadProductWithGallery,
   async (req, res) => {
     try {
       const body = req.body || {};
+      const files = req.files || {};
       const category = String(body.category || "").trim();
       const name = String(body.name || "").trim();
       if (!category || !PRODUCT_CATEGORIES.includes(category)) {
@@ -1016,10 +1156,11 @@ app.post(
       if (!price) return res.status(400).json({ error: "Price is required" });
       const oldPrice = Number(body.oldPrice) || 0;
       let imageUrl = String(body.imageUrl || "").trim();
-      if (req.file) {
-        const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-products");
+      if (files.image?.[0]) {
+        const r = await uploadToCloudinary(files.image[0].buffer, files.image[0].mimetype, "brainfeed-products");
         imageUrl = r.secure_url;
       }
+      const galleryImageUrls = await resolveProductGalleryFromRequest(body, files);
       const product = await Product.create({
         category,
         name,
@@ -1031,6 +1172,7 @@ app.post(
         oldPrice,
         currency: String(body.currency || "INR").trim() || "INR",
         imageUrl,
+        galleryImageUrls,
         active: body.active !== "false",
         order: Number(body.order) || 0,
       });
@@ -1045,10 +1187,11 @@ app.patch(
   "/api/admin/products/:id",
   adminAuthMiddleware,
   requireAdminRole("admin"),
-  uploadProductImage.single("image"),
+  uploadProductWithGallery,
   async (req, res) => {
     try {
       const body = req.body || {};
+      const files = req.files || {};
       const update = {};
       if (body.category !== undefined) {
         const category = String(body.category || "").trim();
@@ -1070,11 +1213,14 @@ app.patch(
       if (body.currency !== undefined) update.currency = String(body.currency || "INR").trim() || "INR";
       if (body.active !== undefined) update.active = body.active !== "false";
       if (body.order !== undefined) update.order = Number(body.order) || 0;
-      if (req.file) {
-        const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-products");
+      if (files.image?.[0]) {
+        const r = await uploadToCloudinary(files.image[0].buffer, files.image[0].mimetype, "brainfeed-products");
         update.imageUrl = r.secure_url;
       } else if (body.imageUrl !== undefined) {
         update.imageUrl = String(body.imageUrl || "").trim();
+      }
+      if (body.galleryImageUrls !== undefined) {
+        update.galleryImageUrls = await resolveProductGalleryFromRequest(body, files);
       }
       const product = await Product.findByIdAndUpdate(req.params.id, update, {
         new: true,
@@ -1268,10 +1414,19 @@ const postMediaFields = [
   { name: "audioFile", maxCount: 1 },
 ];
 
+/** Public/news lists: exclude drafts (treat missing `status` as published for legacy rows). */
+function nonDraftPostFilter() {
+  return { status: { $ne: "draft" } };
+}
+
 app.get("/api/admin/posts", adminAuthMiddleware, async (req, res) => {
   try {
     const type = req.query.type;
     const filter = type ? { type } : {};
+
+    const st = String(req.query.status || "").toLowerCase();
+    if (st === "draft") filter.status = "draft";
+    else if (st === "published") filter.status = { $ne: "draft" };
 
     // Date range filter (preferred): matches browser local calendar month.
     // GET ...?type=news&start=2026-03-01T00:00:00.000Z&end=2026-04-01T00:00:00.000Z
@@ -1311,12 +1466,20 @@ app.post("/api/admin/posts", adminAuthMiddleware, uploadPostMedia.fields(postMed
   try {
     const body = req.body || {};
     const type = body.type === "blog" ? "blog" : "news";
-    const title = String(body.title || "").trim();
-    const category = String(body.category || "").trim();
-    if (!title || !category) {
-      return res.status(400).json({ error: "Title and category are required" });
+    const wantsDraft = String(body.status || "").toLowerCase() === "draft";
+    const status = wantsDraft ? "draft" : "published";
+    let title = String(body.title || "").trim();
+    let category = String(body.category || "").trim();
+    if (status === "published" && (!title || !category)) {
+      return res.status(400).json({ error: "Title and category are required to publish" });
     }
-    const slug = slugifyPost(body.slug || title);
+    if (!title) title = "Untitled draft";
+    if (!category) category = "Education";
+    let slug = slugifyPost(body.slug || title);
+    if (status === "draft") {
+      const base = slug && slug !== "post" ? slug : `draft-${Date.now()}`;
+      slug = `${base}-${crypto.randomBytes(3).toString("hex")}`;
+    }
     const folder = type === "news" ? "brainfeed-news" : "brainfeed-blog";
     let featuredImageUrl = "";
     if (req.files?.featuredImage?.[0]) {
@@ -1376,6 +1539,7 @@ app.post("/api/admin/posts", adminAuthMiddleware, uploadPostMedia.fields(postMed
       publishedBy: editorInfo,
       lastEditedBy: editorInfo,
       featuredImageUrl,
+      status,
       media: {
         gallery: galleryUrls,
         videoUrl,
@@ -1418,6 +1582,17 @@ app.patch("/api/admin/posts/:id", adminAuthMiddleware, uploadPostMedia.fields(po
     if (body.audioUrl !== undefined) post.media.audioUrl = String(body.audioUrl).trim();
     if (body.linkUrl !== undefined) post.media.linkUrl = String(body.linkUrl).trim();
     if (body.quoteText !== undefined) post.media.quoteText = String(body.quoteText).trim();
+    if (body.status !== undefined) {
+      const next = String(body.status).toLowerCase() === "draft" ? "draft" : "published";
+      if (next === "published") {
+        const t = String(post.title || "").trim();
+        const c = String(post.category || "").trim();
+        if (!t || !c) {
+          return res.status(400).json({ error: "Title and category are required to publish" });
+        }
+      }
+      post.status = next;
+    }
     const editorInfo = {
       adminId: req.adminId || null,
       name: String(req.adminName || "").trim(),
@@ -1631,11 +1806,15 @@ app.post("/api/admin/flipbooks", adminAuthMiddleware, uploadFlipbookPdf.single("
     }
     const r = await uploadPdfToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-flipbooks");
     const pdfUrl = r.secure_url || r.url;
+    const issueDate = parseFlipbookIssueDate(body.issueMonth, body.issueDate);
     const fb = await Flipbook.create({
       title,
       slug,
       pdfUrl,
+      issueDate: issueDate || new Date(),
       published: body.published !== undefined ? Boolean(body.published) : true,
+      showOnEmagazines:
+        body.showOnEmagazines !== undefined ? Boolean(body.showOnEmagazines) : true,
     });
     res.status(201).json(fb);
   } catch (e) {
@@ -1662,12 +1841,38 @@ app.patch("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => {
       fb.slug = finalSlug;
     }
     if (body.published !== undefined) fb.published = Boolean(body.published);
+    if (body.showOnEmagazines !== undefined) fb.showOnEmagazines = Boolean(body.showOnEmagazines);
+    if (body.issueMonth !== undefined) {
+      const raw = String(body.issueMonth).trim();
+      if (!raw) {
+        fb.issueDate = null;
+      } else {
+        const d = parseFlipbookIssueDate(raw, null);
+        if (d) fb.issueDate = d;
+      }
+    } else if (body.issueDate !== undefined) {
+      const d = parseFlipbookIssueDate(null, body.issueDate);
+      if (d) fb.issueDate = d;
+    }
     await fb.save();
     res.json(fb);
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to update flipbook" });
   }
 });
+
+function parseFlipbookIssueDate(issueMonthRaw, issueDateRaw) {
+  const im = String(issueMonthRaw || "").trim();
+  if (/^\d{4}-\d{2}$/.test(im)) {
+    const [y, m] = im.split("-").map(Number);
+    if (m >= 1 && m <= 12) return new Date(y, m - 1, 1, 12, 0, 0, 0);
+  }
+  if (issueDateRaw) {
+    const d = new Date(String(issueDateRaw));
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return null;
+}
 
 app.post(
   "/api/admin/flipbooks/:id/pdf",
@@ -1703,10 +1908,14 @@ app.delete("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => 
 // ----- Public flipbooks -----
 app.get("/api/flipbooks", async (req, res) => {
   try {
-    const list = await Flipbook.find({ published: true })
-      .sort({ updatedAt: -1 })
-      .select("title slug updatedAt")
+    const list = await Flipbook.find({ published: true, showOnEmagazines: true })
+      .select("title slug updatedAt createdAt issueDate showOnEmagazines")
       .lean();
+    list.sort((a, b) => {
+      const ta = new Date(a.issueDate || a.createdAt).getTime();
+      const tb = new Date(b.issueDate || b.createdAt).getTime();
+      return tb - ta;
+    });
     res.json(list);
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to list flipbooks" });
@@ -1723,6 +1932,236 @@ app.get("/api/flipbooks/slug/:slug", async (req, res) => {
     res.status(500).json({ error: e.message || "Failed to load flipbook" });
   }
 });
+
+function extractYouTubeVideoId(url) {
+  if (!url || typeof url !== "string") return "";
+  const s = url.trim();
+  const shortm = s.match(/youtu\.be\/([^?&#/]+)/i);
+  if (shortm) return shortm[1];
+  const embedm = s.match(/youtube\.com\/embed\/([^?&#/]+)/i);
+  if (embedm) return embedm[1];
+  const shortsm = s.match(/youtube\.com\/shorts\/([^?&#/]+)/i);
+  if (shortsm) return shortsm[1];
+  try {
+    const u = new URL(s);
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return v;
+    }
+  } catch (_) {}
+  return "";
+}
+
+async function ensureGalleryOrdersUnique() {
+  const rows = await GalleryItem.find().sort({ createdAt: 1 });
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].order !== i) {
+      rows[i].order = i;
+      await rows[i].save();
+    }
+  }
+}
+
+function galleryPublicShape(row) {
+  const o = { ...row };
+  if (o._id) o.id = String(o._id);
+  if (o.kind === "youtube" && o.youtubeVideoId) {
+    o.embedUrl = `https://www.youtube.com/embed/${o.youtubeVideoId}?rel=0`;
+  }
+  return o;
+}
+
+// ----- Public gallery (images + YouTube) -----
+app.get("/api/gallery", async (req, res) => {
+  try {
+    const items = await GalleryItem.find({ active: true }).sort({ order: 1, createdAt: 1 }).lean();
+    res.json(items.map((row) => galleryPublicShape(row)));
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load gallery" });
+  }
+});
+
+// ----- Admin gallery -----
+app.get("/api/admin/gallery", adminAuthMiddleware, async (req, res) => {
+  try {
+    await ensureGalleryOrdersUnique();
+    const items = await GalleryItem.find().sort({ order: 1, createdAt: 1 }).lean();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to load gallery" });
+  }
+});
+
+app.post("/api/admin/gallery", adminAuthMiddleware, upload.single("image"), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const kind = String(body.kind || "image").toLowerCase() === "youtube" ? "youtube" : "image";
+    const title = String(body.title || "").trim();
+    const caption = String(body.caption || "").trim();
+    let imageUrl = "";
+    let youtubeVideoId = "";
+    let youtubeUrl = "";
+
+    if (kind === "image") {
+      if (req.file) {
+        const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-gallery");
+        imageUrl = r.secure_url;
+      } else {
+        imageUrl = String(body.imageUrl || "").trim();
+      }
+      if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
+        return res.status(400).json({ error: "Upload an image file or provide a valid image URL (http/https)." });
+      }
+    } else {
+      youtubeUrl = String(body.youtubeUrl || "").trim();
+      youtubeVideoId = extractYouTubeVideoId(youtubeUrl);
+      if (!youtubeVideoId) {
+        return res.status(400).json({ error: "Paste a valid YouTube link (watch, youtu.be, shorts, or embed)." });
+      }
+    }
+
+    await ensureGalleryOrdersUnique();
+    const max = await GalleryItem.findOne().sort({ order: -1 }).select("order").lean();
+    const order = (max?.order ?? -1) + 1;
+
+    const doc = await GalleryItem.create({
+      kind,
+      imageUrl: kind === "image" ? imageUrl : "",
+      youtubeVideoId: kind === "youtube" ? youtubeVideoId : "",
+      youtubeUrl: kind === "youtube" ? youtubeUrl : "",
+      title,
+      caption,
+      order,
+      active: body.active === "false" || body.active === false ? false : true,
+    });
+    res.status(201).json(doc.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to create gallery item" });
+  }
+});
+
+app.patch("/api/admin/gallery/:id", adminAuthMiddleware, upload.single("image"), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const item = await GalleryItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: "Not found" });
+
+    if (body.title !== undefined) item.title = String(body.title).trim();
+    if (body.caption !== undefined) item.caption = String(body.caption).trim();
+    if (body.active !== undefined) item.active = body.active !== "false" && body.active !== false;
+
+    if (item.kind === "image") {
+      if (req.file) {
+        const r = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-gallery");
+        item.imageUrl = r.secure_url;
+      } else if (body.imageUrl !== undefined) {
+        const u = String(body.imageUrl).trim();
+        if (u && /^https?:\/\//i.test(u)) item.imageUrl = u;
+      }
+    } else if (item.kind === "youtube" && body.youtubeUrl !== undefined) {
+      const yUrl = String(body.youtubeUrl).trim();
+      item.youtubeUrl = yUrl;
+      item.youtubeVideoId = extractYouTubeVideoId(yUrl);
+      if (!item.youtubeVideoId) {
+        return res.status(400).json({ error: "Could not parse YouTube URL" });
+      }
+    }
+
+    await item.save();
+    res.json(item.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to update gallery item" });
+  }
+});
+
+app.post("/api/admin/gallery/:id/reorder", adminAuthMiddleware, async (req, res) => {
+  try {
+    await ensureGalleryOrdersUnique();
+    const direction = String(req.body?.direction || "").toLowerCase();
+    const id = req.params.id;
+    const arr = await GalleryItem.find().sort({ order: 1, _id: 1 });
+    const idx = arr.findIndex((x) => x._id.toString() === id);
+    if (idx < 0) return res.status(404).json({ error: "Not found" });
+    const j = direction === "up" ? idx - 1 : direction === "down" ? idx + 1 : -1;
+    if (j < 0 || j >= arr.length) {
+      const items = await GalleryItem.find().sort({ order: 1, createdAt: 1 }).lean();
+      return res.json(items);
+    }
+    const a = arr[idx];
+    const b = arr[j];
+    const t = a.order;
+    a.order = b.order;
+    b.order = t;
+    await Promise.all([a.save(), b.save()]);
+    await ensureGalleryOrdersUnique();
+    const items = await GalleryItem.find().sort({ order: 1, createdAt: 1 }).lean();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to reorder" });
+  }
+});
+
+app.delete("/api/admin/gallery/:id", adminAuthMiddleware, async (req, res) => {
+  try {
+    const r = await GalleryItem.findByIdAndDelete(req.params.id);
+    if (!r) return res.status(404).json({ error: "Not found" });
+    await ensureGalleryOrdersUnique();
+    res.json({ deleted: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to delete" });
+  }
+});
+
+// ----- Public newsletter (homepage form) -----
+app.post("/api/newsletter/subscribe", async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Valid email is required" });
+    }
+    const source = String(req.body?.source || "homepage").trim().slice(0, 64) || "homepage";
+    try {
+      const doc = await NewsletterSubscriber.create({ email, source });
+      return res.status(201).json({ ok: true, id: doc._id.toString() });
+    } catch (e) {
+      if (e && e.code === 11000) {
+        return res.json({ ok: true, alreadySubscribed: true });
+      }
+      throw e;
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Failed to subscribe" });
+  }
+});
+
+app.get(
+  "/api/admin/newsletter-subscribers",
+  adminAuthMiddleware,
+  requireAdminRole("admin"),
+  async (req, res) => {
+    try {
+      const rows = await NewsletterSubscriber.find().sort({ createdAt: -1 }).lean();
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to load subscribers" });
+    }
+  },
+);
+
+app.delete(
+  "/api/admin/newsletter-subscribers/:id",
+  adminAuthMiddleware,
+  requireAdminRole("admin"),
+  async (req, res) => {
+    try {
+      const r = await NewsletterSubscriber.findByIdAndDelete(req.params.id);
+      if (!r) return res.status(404).json({ error: "Not found" });
+      res.json({ deleted: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to delete" });
+    }
+  },
+);
 
 // ----- Public pages (by slug for menus and single page view) -----
 app.get("/api/pages", async (req, res) => {
@@ -1766,7 +2205,7 @@ app.get("/api/pages/slug/:slug", async (req, res) => {
 // ----- Public posts (News & Blog) -----
 app.get("/api/posts/news", async (req, res) => {
   try {
-    const posts = await Post.find({ type: "news" }).sort({ createdAt: -1 }).lean();
+    const posts = await Post.find({ type: "news", ...nonDraftPostFilter() }).sort({ createdAt: -1 }).lean();
     res.json(posts.map((p) => ({ ...p, id: p._id.toString(), imageUrl: p.featuredImageUrl })));
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to load news" });
@@ -1775,7 +2214,7 @@ app.get("/api/posts/news", async (req, res) => {
 
 app.get("/api/posts/blogs", async (req, res) => {
   try {
-    const posts = await Post.find({ type: "blog" }).sort({ createdAt: -1 }).lean();
+    const posts = await Post.find({ type: "blog", ...nonDraftPostFilter() }).sort({ createdAt: -1 }).lean();
     res.json(posts.map((p) => ({ ...p, id: p._id.toString(), imageUrl: p.featuredImageUrl })));
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to load blogs" });
@@ -1785,7 +2224,7 @@ app.get("/api/posts/blogs", async (req, res) => {
 app.get("/api/posts/news/:id", async (req, res) => {
   try {
     const post = await Post.findOneAndUpdate(
-      { _id: req.params.id, type: "news" },
+      { _id: req.params.id, type: "news", ...nonDraftPostFilter() },
       { $inc: { views: 1 } },
       { new: true }
     ).lean();
@@ -1804,7 +2243,7 @@ app.get("/api/posts/news/:id", async (req, res) => {
 app.get("/api/posts/blogs/:id", async (req, res) => {
   try {
     const post = await Post.findOneAndUpdate(
-      { _id: req.params.id, type: "blog" },
+      { _id: req.params.id, type: "blog", ...nonDraftPostFilter() },
       { $inc: { views: 1 } },
       { new: true }
     ).lean();
@@ -1817,7 +2256,7 @@ app.get("/api/posts/blogs/:id", async (req, res) => {
 
 app.get("/api/articles", async (req, res) => {
   try {
-    const posts = await Post.find({ type: "news" }).sort({ createdAt: -1 }).lean();
+    const posts = await Post.find({ type: "news", ...nonDraftPostFilter() }).sort({ createdAt: -1 }).lean();
     res.json(
       posts.map((p) => ({
         id: p._id.toString(),

@@ -67,6 +67,8 @@ const AdminPostForm = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  /** draft | published — loaded from API; drives Save draft vs Publish */
+  const [postStatus, setPostStatus] = useState<"draft" | "published">("published");
   const [loading, setLoading] = useState(isEdit);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** Saved URLs when editing — for live preview before re-upload */
@@ -239,6 +241,8 @@ const AdminPostForm = () => {
         const fmt = VALID_FORMATS.has(fmtRaw) ? fmtRaw : "standard";
 
         setTitle(String((p as any).title ?? ""));
+        const st = String((p as any).status || "published").toLowerCase();
+        setPostStatus(st === "draft" ? "draft" : "published");
         setSubtitle(String((p as any).subtitle ?? ""));
         setSlug(String((p as any).slug ?? ""));
         setContent(String((p as any).content ?? ""));
@@ -280,21 +284,17 @@ const AdminPostForm = () => {
     };
   }, [isEdit, id, token, adminAuthLoading, type, categories]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !title.trim() || !category.trim()) {
-      toast.error("Title and category are required.");
-      return;
-    }
-    setSaving(true);
+  const buildFormData = (status: "draft" | "published") => {
     const formData = new FormData();
     formData.set("type", type);
-    formData.set("title", title.trim());
+    formData.set("status", status);
+    const titleVal = title.trim() || (status === "draft" ? "Untitled draft" : "");
+    formData.set("title", titleVal);
+    formData.set("category", category.trim() || categories[0] || "Education");
     formData.set("slug", (slug || slugifyTitle(title)).trim());
     formData.set("subtitle", subtitle.trim());
     formData.set("content", content);
     formData.set("format", format);
-    formData.set("category", category.trim());
     formData.set("excerpt", excerpt.trim());
     formData.set("readTime", readTime.trim());
     formData.set("metaTitle", metaTitle.trim());
@@ -313,6 +313,44 @@ const AdminPostForm = () => {
     if (isEdit && clearGalleryOnSave) {
       formData.set("clearGallery", "true");
     }
+    return formData;
+  };
+
+  const saveDraft = async () => {
+    if (!token) return;
+    setSaving(true);
+    try {
+      const formData = buildFormData("draft");
+      const url = isEdit && id ? buildApiUrl(`/admin/posts/${id}`) : buildApiUrl("/admin/posts");
+      const method = isEdit && id ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = (await res.json()) as { _id?: string; id?: string; error?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to save draft");
+      setPostStatus("draft");
+      toast.success("Draft saved.");
+      const newId = data._id ?? data.id;
+      if (!isEdit && newId) {
+        navigate(`/admin/posts/${String(newId)}/edit?type=news`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save draft.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !title.trim() || !category.trim()) {
+      toast.error("Title and category are required to publish.");
+      return;
+    }
+    setSaving(true);
+    const formData = buildFormData("published");
 
     try {
       const url = isEdit ? buildApiUrl(`/admin/posts/${id}`) : buildApiUrl("/admin/posts");
@@ -324,7 +362,8 @@ const AdminPostForm = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
-      toast.success(isEdit ? "Post updated." : "Post created.");
+      setPostStatus("published");
+      toast.success(isEdit ? "Post updated and published." : "Post published.");
       navigate(`/admin/posts?type=${type}`);
     } catch (err) {
       if (err instanceof Error && err.message.toLowerCase().includes("slug")) {
@@ -356,6 +395,11 @@ const AdminPostForm = () => {
       <h1 className="font-serif text-2xl text-foreground mb-2">
         {isEdit ? "Edit news article" : "Add news article"}
       </h1>
+      {postStatus === "draft" && (
+        <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+          This article is a <strong>draft</strong>. It is not visible on the public site until you publish it.
+        </p>
+      )}
       {isEdit && (
         <p className="text-sm text-muted-foreground mb-6 max-w-3xl">
           All saved fields appear below — title, slug, category, SEO, tags, format tabs, and body content (including inline
@@ -381,9 +425,9 @@ const AdminPostForm = () => {
               if (!isEdit) setSlug(slugifyTitle(v));
             }}
             placeholder="Add title"
-            required
             className="h-11"
           />
+          <p className="text-[11px] text-muted-foreground">Required to publish. You can save a draft without a title (uses &ldquo;Untitled draft&rdquo;).</p>
         </div>
         <div className="space-y-2">
           <Label>Slug (URL name)</Label>
@@ -649,7 +693,16 @@ const AdminPostForm = () => {
 
           <div className="flex flex-wrap gap-3 items-center">
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : isEdit ? "Update post" : "Create post"}
+              {saving
+                ? "Saving…"
+                : postStatus === "draft" && isEdit
+                  ? "Publish"
+                  : isEdit
+                    ? "Update post"
+                    : "Publish"}
+            </Button>
+            <Button type="button" variant="secondary" disabled={saving} onClick={() => void saveDraft()}>
+              Save draft
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate(`/admin/posts?type=${type}`)}>
               Cancel
