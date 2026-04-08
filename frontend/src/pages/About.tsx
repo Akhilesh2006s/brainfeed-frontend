@@ -64,6 +64,7 @@ type AboutPage = {
   heroImageAlt?: string;
   aboutCovers?: {
     main?: string;
+    high?: string;
     primary2?: string;
     primary1?: string;
     junior?: string;
@@ -266,8 +267,7 @@ const About = () => {
             <ScrollReveal direction="up" once>
               <h2 className="section-title">Our publications</h2>
               <p className="text-muted-foreground font-sans max-w-2xl mb-12">
-                One educators' magazine and four children's magazines — each
-                crafted for its audience.
+                Five specialized magazines — each crafted for its audience, from educators to early years.
               </p>
             </ScrollReveal>
 
@@ -289,6 +289,17 @@ const About = () => {
                             mainCover
                           }
                           alt="Brainfeed Magazine cover"
+                          className="w-full h-full object-cover object-top"
+                          loading="lazy"
+                        />
+                      ) : edition.title === "Brainfeed High" ? (
+                        <img
+                          src={
+                            aboutSettings.aboutCoverHigh ||
+                            aboutPage?.aboutCovers?.high ||
+                            mainCover
+                          }
+                          alt="Brainfeed High magazine cover"
                           className="w-full h-full object-cover object-top"
                           loading="lazy"
                         />
@@ -325,11 +336,7 @@ const About = () => {
                           className="w-full h-full object-cover object-top"
                           loading="lazy"
                         />
-                      ) : (
-                        <div className="p-10">
-                          <edition.icon className="h-14 w-14 md:h-16 md:w-16 text-accent" />
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                     <div className="p-5 sm:p-6 md:p-7 flex flex-col flex-1">
                       <span className="text-[11px] font-semibold uppercase tracking-widest text-accent">

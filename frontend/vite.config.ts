@@ -14,9 +14,12 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/api": {
         // Dev: local backend (`cd backend && npm start`, default PORT=3001). For Railway, set VITE_API_URL in `.env.development` instead of using the proxy.
-        target: "http://localhost:3001",
+        // Use IPv4 + long timeouts so large uploads (PDF / cover → Cloudinary) don’t hit net::ERR_CONNECTION_RESET.
+        target: "http://127.0.0.1:3001",
         changeOrigin: true,
         secure: false,
+        timeout: 180000,
+        proxyTimeout: 180000,
       },
     },
   },

@@ -62,6 +62,7 @@ export type SiteSettings = {
     heroImageUrl?: string;
     heroImageAlt?: string;
     aboutCoverMain?: string;
+    aboutCoverHigh?: string;
     aboutCoverPrimary2?: string;
     aboutCoverPrimary1?: string;
     aboutCoverJunior?: string;

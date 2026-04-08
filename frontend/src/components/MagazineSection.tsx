@@ -81,11 +81,19 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
   ];
 
   const magazineById = new Map(magazines.map((m) => [m.id, m]));
-  const selected = (magazineIds || [])
-    .map((id) => magazineById.get(id))
+  // Match admin “Position 1–5”: pad to 5 slots so legacy saves (4 ids) still map to positions before padding.
+  const slotIds: string[] = [...(magazineIds || [])];
+  while (slotIds.length < 5) slotIds.push("");
+  const fromSlots = slotIds
+    .slice(0, 5)
+    .map((id) => {
+      const t = String(id ?? "").trim();
+      if (!t) return undefined;
+      return magazineById.get(t);
+    })
     .filter((m): m is Magazine => Boolean(m));
-  // Respect admin-configured order exactly (up to 4). If nothing configured, show default first 4.
-  const visibleMagazines = (selected.length ? selected : magazines).slice(0, 4);
+  const seen = new Set(fromSlots.map((m) => m.id));
+  const visibleMagazines = [...fromSlots, ...magazines.filter((m) => !seen.has(m.id))].slice(0, 5);
 
   return (
     <section className="py-10 sm:py-12 md:py-16 lg:py-24 bg-secondary/60">
@@ -106,7 +114,7 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
           </p>
         </ScrollReveal>
 
-        <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+        <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
           {visibleMagazines.map((magazine, index) => (
             <ScrollReveal
               key={magazine.id}

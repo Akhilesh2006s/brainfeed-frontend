@@ -55,7 +55,7 @@ const Newsletter = () => {
         </ScrollReveal>
         <motion.form
           className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 max-w-lg mx-auto"
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={handleSubmit}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}

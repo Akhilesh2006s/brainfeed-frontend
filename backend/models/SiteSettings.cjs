@@ -55,6 +55,7 @@ const siteSettingsSchema = new mongoose.Schema(
       heroImageUrl: { type: String, trim: true, default: "" },
       heroImageAlt: { type: String, trim: true, default: "" },
       aboutCoverMain: { type: String, trim: true, default: "" },
+      aboutCoverHigh: { type: String, trim: true, default: "" },
       aboutCoverPrimary2: { type: String, trim: true, default: "" },
       aboutCoverPrimary1: { type: String, trim: true, default: "" },
       aboutCoverJunior: { type: String, trim: true, default: "" },

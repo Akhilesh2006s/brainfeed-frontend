@@ -82,6 +82,39 @@ const uploadFlipbookPdf = multer({
   fileFilter: pdfFilter,
 });
 
+/** PDF (required) + optional cover image on create */
+function flipbookCreateFileFilter(req, file, cb) {
+  if (file.fieldname === "pdf") {
+    return file.mimetype === "application/pdf" ? cb(null, true) : cb(new Error("Only PDF files are allowed for pdf field"), false);
+  }
+  if (file.fieldname === "cover") {
+    return /^image\/(jpeg|jpg|png|gif|webp)$/i.test(file.mimetype)
+      ? cb(null, true)
+      : cb(new Error("Cover must be an image (JPEG, PNG, GIF, or WebP)"), false);
+  }
+  cb(new Error("Unexpected file field"), false);
+}
+const uploadFlipbookCreate = multer({
+  storage,
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter: flipbookCreateFileFilter,
+}).fields([
+  { name: "pdf", maxCount: 1 },
+  { name: "cover", maxCount: 1 },
+]);
+
+/** Wrap multer so limit/type errors return JSON instead of hanging or resetting the connection. */
+function multerCatch(uploadMiddleware) {
+  return (req, res, next) => {
+    uploadMiddleware(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ error: String(err.message || err) });
+      }
+      next();
+    });
+  };
+}
+
 function readArticles() {
   try {
     const raw = fs.readFileSync(ARTICLES_PATH, "utf8");
@@ -392,7 +425,18 @@ function requireAdminRole(requiredRole) {
   };
 }
 
+function cloudinaryConfigured() {
+  return Boolean(
+    (process.env.CLOUDINARY_CLOUD_NAME || "").trim() &&
+      (process.env.CLOUDINARY_API_KEY || "").trim() &&
+      (process.env.CLOUDINARY_API_SECRET || "").trim(),
+  );
+}
+
 async function uploadToCloudinary(buffer, mimeType, folder) {
+  if (!cloudinaryConfigured()) {
+    throw new Error("Cloudinary is not configured (set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env)");
+  }
   const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(dataUri, { folder }, (err, res) => (err ? reject(err) : resolve(res)));
@@ -401,6 +445,9 @@ async function uploadToCloudinary(buffer, mimeType, folder) {
 
 /** PDF / raw files — Cloudinary `raw` resource type */
 async function uploadPdfToCloudinary(buffer, mimeType, folder) {
+  if (!cloudinaryConfigured()) {
+    throw new Error("Cloudinary is not configured (set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env)");
+  }
   const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
@@ -487,6 +534,7 @@ function getDefaultSiteSettings() {
       heroImageUrl: "",
       heroImageAlt: "",
       aboutCoverMain: "",
+      aboutCoverHigh: "",
       aboutCoverPrimary2: "",
       aboutCoverPrimary1: "",
       aboutCoverJunior: "",
@@ -1688,6 +1736,7 @@ app.post("/api/admin/pages", adminAuthMiddleware, async (req, res) => {
     const heroImageAlt = String(body.heroImageAlt || "").trim();
     const aboutCovers = {
       main: String(body.aboutCoverMain || "").trim(),
+      high: String(body.aboutCoverHigh || "").trim(),
       primary2: String(body.aboutCoverPrimary2 || "").trim(),
       primary1: String(body.aboutCoverPrimary1 || "").trim(),
       junior: String(body.aboutCoverJunior || "").trim(),
@@ -1735,6 +1784,7 @@ app.patch("/api/admin/pages/:id", adminAuthMiddleware, async (req, res) => {
     if (body.heroImageAlt !== undefined) page.heroImageAlt = String(body.heroImageAlt || "").trim();
     if (
       body.aboutCoverMain !== undefined ||
+      body.aboutCoverHigh !== undefined ||
       body.aboutCoverPrimary2 !== undefined ||
       body.aboutCoverPrimary1 !== undefined ||
       body.aboutCoverJunior !== undefined
@@ -1742,6 +1792,7 @@ app.patch("/api/admin/pages/:id", adminAuthMiddleware, async (req, res) => {
       page.aboutCovers = {
         ...(page.aboutCovers || {}),
         ...(body.aboutCoverMain !== undefined ? { main: String(body.aboutCoverMain || "").trim() } : {}),
+        ...(body.aboutCoverHigh !== undefined ? { high: String(body.aboutCoverHigh || "").trim() } : {}),
         ...(body.aboutCoverPrimary2 !== undefined
           ? { primary2: String(body.aboutCoverPrimary2 || "").trim() }
           : {}),
@@ -1788,7 +1839,7 @@ app.get("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => {
   }
 });
 
-app.post("/api/admin/flipbooks", adminAuthMiddleware, uploadFlipbookPdf.single("pdf"), async (req, res) => {
+app.post("/api/admin/flipbooks", adminAuthMiddleware, multerCatch(uploadFlipbookCreate), async (req, res) => {
   try {
     const body = req.body || {};
     const title = String(body.title || "").trim();
@@ -1801,16 +1852,24 @@ app.post("/api/admin/flipbooks", adminAuthMiddleware, uploadFlipbookPdf.single("
       while (await Flipbook.findOne({ slug: slug + "-" + suffix })) suffix++;
       slug = slug + "-" + suffix;
     }
-    if (!req.file || !req.file.buffer) {
+    const pdfFile = req.files?.pdf?.[0];
+    if (!pdfFile || !pdfFile.buffer) {
       return res.status(400).json({ error: "PDF file is required (field name: pdf)" });
     }
-    const r = await uploadPdfToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-flipbooks");
+    const r = await uploadPdfToCloudinary(pdfFile.buffer, pdfFile.mimetype, "brainfeed-flipbooks");
     const pdfUrl = r.secure_url || r.url;
+    let coverImageUrl = "";
+    const coverFile = req.files?.cover?.[0];
+    if (coverFile && coverFile.buffer) {
+      const rc = await uploadToCloudinary(coverFile.buffer, coverFile.mimetype, "brainfeed-flipbook-covers");
+      coverImageUrl = rc.secure_url || rc.url || "";
+    }
     const issueDate = parseFlipbookIssueDate(body.issueMonth, body.issueDate);
     const fb = await Flipbook.create({
       title,
       slug,
       pdfUrl,
+      coverImageUrl,
       issueDate: issueDate || new Date(),
       published: body.published !== undefined ? Boolean(body.published) : true,
       showOnEmagazines:
@@ -1854,12 +1913,42 @@ app.patch("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => {
       const d = parseFlipbookIssueDate(null, body.issueDate);
       if (d) fb.issueDate = d;
     }
+    if (body.coverImageUrl !== undefined) {
+      fb.coverImageUrl = String(body.coverImageUrl || "").trim();
+    }
     await fb.save();
     res.json(fb);
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to update flipbook" });
   }
 });
+
+app.post(
+  "/api/admin/flipbooks/:id/cover",
+  adminAuthMiddleware,
+  multerCatch(upload.single("image")),
+  async (req, res) => {
+    try {
+      if (!cloudinaryConfigured()) {
+        return res.status(503).json({
+          error:
+            "Image storage is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to backend .env and restart the server.",
+        });
+      }
+      const fb = await Flipbook.findById(req.params.id);
+      if (!fb) return res.status(404).json({ error: "Flipbook not found" });
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: "Image file is required (field name: image)" });
+      }
+      const rc = await uploadToCloudinary(req.file.buffer, req.file.mimetype, "brainfeed-flipbook-covers");
+      fb.coverImageUrl = rc.secure_url || rc.url || "";
+      await fb.save();
+      res.json(fb);
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to upload cover" });
+    }
+  },
+);
 
 function parseFlipbookIssueDate(issueMonthRaw, issueDateRaw) {
   const im = String(issueMonthRaw || "").trim();
@@ -1877,7 +1966,7 @@ function parseFlipbookIssueDate(issueMonthRaw, issueDateRaw) {
 app.post(
   "/api/admin/flipbooks/:id/pdf",
   adminAuthMiddleware,
-  uploadFlipbookPdf.single("pdf"),
+  multerCatch(uploadFlipbookPdf.single("pdf")),
   async (req, res) => {
     try {
       const fb = await Flipbook.findById(req.params.id);
@@ -1909,7 +1998,7 @@ app.delete("/api/admin/flipbooks/:id", adminAuthMiddleware, async (req, res) => 
 app.get("/api/flipbooks", async (req, res) => {
   try {
     const list = await Flipbook.find({ published: true, showOnEmagazines: true })
-      .select("title slug updatedAt createdAt issueDate showOnEmagazines")
+      .select("title slug updatedAt createdAt issueDate showOnEmagazines coverImageUrl")
       .lean();
     list.sort((a, b) => {
       const ta = new Date(a.issueDate || a.createdAt).getTime();

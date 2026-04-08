@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAdmin } from "@/context/AdminContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,6 +57,7 @@ type Settings = {
     heroImageUrl?: string;
     heroImageAlt?: string;
     aboutCoverMain?: string;
+    aboutCoverHigh?: string;
     aboutCoverPrimary2?: string;
     aboutCoverPrimary1?: string;
     aboutCoverJunior?: string;
@@ -107,15 +109,16 @@ const LATEST_MAGAZINE_OPTIONS = [
   { id: "high", label: "Brainfeed High" },
 ];
 
-/** Pad saved id list to 4 slots for the admin UI (order = home page left → right). */
-function latestMagazineIdsToSlots(ids: string[] | undefined): [string, string, string, string] {
+/** Pad saved id list to 5 slots for the admin UI (order = home page left → right). */
+function latestMagazineIdsToSlots(ids: string[] | undefined): [string, string, string, string, string] {
   const a = [...(ids || [])];
-  while (a.length < 4) a.push("");
-  return a.slice(0, 4) as [string, string, string, string];
+  while (a.length < 5) a.push("");
+  return a.slice(0, 5) as [string, string, string, string, string];
 }
 
 const AdminSiteSettings = () => {
   const { token, isAdmin } = useAdmin();
+  const { refresh: refreshPublicSiteSettings } = useSiteSettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<Settings>({});
@@ -123,7 +126,12 @@ const AdminSiteSettings = () => {
   const [uploadingAboutImage, setUploadingAboutImage] = useState(false);
   const [uploadingContactMap, setUploadingContactMap] = useState(false);
   const [aboutUploadKey, setAboutUploadKey] = useState<
-    "heroImageUrl" | "aboutCoverMain" | "aboutCoverPrimary2" | "aboutCoverPrimary1" | "aboutCoverJunior"
+    | "heroImageUrl"
+    | "aboutCoverMain"
+    | "aboutCoverHigh"
+    | "aboutCoverPrimary2"
+    | "aboutCoverPrimary1"
+    | "aboutCoverJunior"
   >("heroImageUrl");
   const [section, setSection] = useState<"home" | "topbar" | "footer" | "about" | "contact">("home");
   const [newsOptions, setNewsOptions] = useState<NewsOption[]>([]);
@@ -196,6 +204,7 @@ const AdminSiteSettings = () => {
       setData(j || {});
       const savedLinks = j?.topBar?.links?.length ? j.topBar.links : [...DEFAULT_TOP_BAR_LINKS];
       setTopLinksDraft(topBarLinksToText(savedLinks));
+      await refreshPublicSiteSettings();
       toast.success("Site settings saved.");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save settings.");
@@ -220,17 +229,21 @@ const AdminSiteSettings = () => {
   );
 
   const setMagazineSlot = (index: number, value: string) => {
-    const next = [...magazineSlots] as [string, string, string, string];
     const trimmed = value.trim();
-    // Keep slots unique: selecting a magazine in one slot removes it from others.
-    if (trimmed) {
-      for (let i = 0; i < next.length; i++) {
-        if (i !== index && next[i] === trimmed) next[i] = "";
+    setData((p) => {
+      const slots = latestMagazineIdsToSlots(p.homeLayout?.latestMagazineIds);
+      const next = [...slots] as [string, string, string, string, string];
+      if (trimmed) {
+        for (let i = 0; i < next.length; i++) {
+          if (i !== index && next[i] === trimmed) next[i] = "";
+        }
       }
-    }
-    next[index] = trimmed;
-    // Preserve slot order (including intentional empty slots).
-    setHomeLayout({ latestMagazineIds: next });
+      next[index] = trimmed;
+      return {
+        ...p,
+        homeLayout: { ...(p.homeLayout || {}), latestMagazineIds: next },
+      };
+    });
   };
 
   if (!isAdmin) {
@@ -474,12 +487,12 @@ const AdminSiteSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Latest Magazines section (up to 4, order left → right)</Label>
+            <Label>Latest Magazines section (up to 5, order left → right)</Label>
             <p className="text-xs text-muted-foreground">
-              Position 1 is the first card on the left on the home page, then 2, 3, 4. Choose &ldquo;— Skip —&rdquo; to leave a slot empty. No Ctrl/Cmd key needed.
+              Position 1 is the first card on the left on the home page, then 2–5. Choose &ldquo;— Skip —&rdquo; to leave a slot empty. No Ctrl/Cmd key needed.
             </p>
             <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-              {[0, 1, 2, 3].map((i) => (
+              {[0, 1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                   <span className="text-xs font-medium text-muted-foreground shrink-0 w-full sm:w-28">
                     Position {i + 1}
@@ -699,6 +712,25 @@ const AdminSiteSettings = () => {
               </Button>
               {data.about?.aboutCoverMain && (
                 <p className="truncate text-xs text-muted-foreground">Current: {data.about.aboutCoverMain}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Brainfeed High cover</Label>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-fit"
+                disabled={uploadingAboutImage}
+                onClick={() => {
+                  setAboutUploadKey("aboutCoverHigh");
+                  document.getElementById("about-upload-input")?.click();
+                }}
+              >
+                {uploadingAboutImage ? "Uploading…" : "Upload image"}
+              </Button>
+              {data.about?.aboutCoverHigh && (
+                <p className="truncate text-xs text-muted-foreground">Current: {data.about.aboutCoverHigh}</p>
               )}
             </div>
 

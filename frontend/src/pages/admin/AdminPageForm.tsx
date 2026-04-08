@@ -35,6 +35,7 @@ const AdminPageForm = () => {
   const [heroImageUrl, setHeroImageUrl] = useState("");
   const [heroImageAlt, setHeroImageAlt] = useState("");
   const [aboutCoverMain, setAboutCoverMain] = useState("");
+  const [aboutCoverHigh, setAboutCoverHigh] = useState("");
   const [aboutCoverPrimary2, setAboutCoverPrimary2] = useState("");
   const [aboutCoverPrimary1, setAboutCoverPrimary1] = useState("");
   const [aboutCoverJunior, setAboutCoverJunior] = useState("");
@@ -120,6 +121,7 @@ const AdminPageForm = () => {
           heroImageAlt?: string;
           aboutCovers?: {
             main?: string;
+            high?: string;
             primary2?: string;
             primary1?: string;
             junior?: string;
@@ -146,6 +148,7 @@ const AdminPageForm = () => {
         setHeroImageUrl(String(p.heroImageUrl ?? ""));
         setHeroImageAlt(String(p.heroImageAlt ?? ""));
         setAboutCoverMain(String(p.aboutCovers?.main ?? ""));
+        setAboutCoverHigh(String(p.aboutCovers?.high ?? ""));
         setAboutCoverPrimary2(String(p.aboutCovers?.primary2 ?? ""));
         setAboutCoverPrimary1(String(p.aboutCovers?.primary1 ?? ""));
         setAboutCoverJunior(String(p.aboutCovers?.junior ?? ""));
@@ -190,6 +193,7 @@ const AdminPageForm = () => {
       heroImageUrl: heroImageUrl.trim(),
       heroImageAlt: heroImageAlt.trim(),
       aboutCoverMain: aboutCoverMain.trim(),
+      aboutCoverHigh: aboutCoverHigh.trim(),
       aboutCoverPrimary2: aboutCoverPrimary2.trim(),
       aboutCoverPrimary1: aboutCoverPrimary1.trim(),
       aboutCoverJunior: aboutCoverJunior.trim(),
@@ -274,6 +278,15 @@ const AdminPageForm = () => {
                 <Input
                   value={aboutCoverMain}
                   onChange={(e) => setAboutCoverMain(e.target.value)}
+                  placeholder="https://..."
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Brainfeed High cover URL</Label>
+                <Input
+                  value={aboutCoverHigh}
+                  onChange={(e) => setAboutCoverHigh(e.target.value)}
                   placeholder="https://..."
                   className="h-11"
                 />

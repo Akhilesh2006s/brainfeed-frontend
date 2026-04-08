@@ -37,6 +37,8 @@ const AdminFlipbookForm = () => {
   const [issueMonth, setIssueMonth] = useState(() => defaultIssueMonth());
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [existingPdfUrl, setExistingPdfUrl] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [existingCoverUrl, setExistingCoverUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [showOnEmagazines, setShowOnEmagazines] = useState(true);
   const [loading, setLoading] = useState(isEdit);
@@ -50,11 +52,20 @@ const AdminFlipbookForm = () => {
     if (isEdit && id && token) {
       fetch(buildApiUrl(`/admin/flipbooks/${id}`), { headers: { Authorization: `Bearer ${token}` } })
         .then((res) => (res.ok ? res.json() : null))
-        .then((fb: { title?: string; slug?: string; pdfUrl?: string; issueDate?: string; showOnEmagazines?: boolean } | null) => {
+        .then(
+          (fb: {
+            title?: string;
+            slug?: string;
+            pdfUrl?: string;
+            coverImageUrl?: string;
+            issueDate?: string;
+            showOnEmagazines?: boolean;
+          } | null) => {
           if (!fb) return;
           setTitle(String(fb.title || ""));
           setSlug(String(fb.slug || ""));
           setExistingPdfUrl(String(fb.pdfUrl || ""));
+          setExistingCoverUrl(String(fb.coverImageUrl || ""));
           setShowOnEmagazines(fb.showOnEmagazines !== false);
           if (fb.issueDate) {
             const d = new Date(fb.issueDate);
@@ -88,6 +99,7 @@ const AdminFlipbookForm = () => {
         fd.append("issueMonth", issueMonth.trim() || defaultIssueMonth());
         fd.append("showOnEmagazines", showOnEmagazines ? "true" : "false");
         fd.append("pdf", pdfFile!);
+        if (coverFile) fd.append("cover", coverFile);
         const res = await fetch(buildApiUrl("/admin/flipbooks"), {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
@@ -130,6 +142,18 @@ const AdminFlipbookForm = () => {
         });
         const upData = await up.json().catch(() => ({}));
         if (!up.ok) throw new Error((upData as { error?: string }).error || "Failed to replace PDF");
+      }
+
+      if (coverFile) {
+        const cfd = new FormData();
+        cfd.append("image", coverFile);
+        const cup = await fetch(buildApiUrl(`/admin/flipbooks/${id}/cover`), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: cfd,
+        });
+        const cupData = await cup.json().catch(() => ({}));
+        if (!cup.ok) throw new Error((cupData as { error?: string }).error || "Failed to upload cover image");
       }
 
       toast.success("Flipbook saved.");
@@ -206,6 +230,49 @@ const AdminFlipbookForm = () => {
           <Label htmlFor="fb-show-emags" className="text-sm text-muted-foreground">
             Show this flipbook on the public E-Magazines page
           </Label>
+        </div>
+        <div>
+          <Label htmlFor="fb-cover">Cover image (E-Magazines preview)</Label>
+          <Input
+            id="fb-cover"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="mt-1.5 cursor-pointer"
+            onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Optional. Shown as the thumbnail on the public E-Magazines page. Recommended ~600×800px or similar portrait ratio.
+          </p>
+          {isEdit && existingCoverUrl && !coverFile && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <img
+                src={existingCoverUrl}
+                alt="Current cover"
+                className="h-32 w-auto max-w-full rounded-lg border border-border object-cover"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (!token || !id) return;
+                  const res = await fetch(buildApiUrl(`/admin/flipbooks/${id}`), {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ coverImageUrl: "" }),
+                  });
+                  if (!res.ok) {
+                    toast.error("Could not remove cover.");
+                    return;
+                  }
+                  setExistingCoverUrl("");
+                  toast.success("Cover removed.");
+                }}
+              >
+                Remove cover
+              </Button>
+            </div>
+          )}
         </div>
         <div>
           <Label htmlFor="fb-pdf">PDF file {!isEdit ? "(required)" : "(optional — replace)"}</Label>

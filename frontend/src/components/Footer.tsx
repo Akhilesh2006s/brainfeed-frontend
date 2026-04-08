@@ -52,9 +52,12 @@ const Footer = () => {
                 </motion.a>
               ))}
             </div>
-            <p className="mt-4 text-[13px] sm:text-sm font-sans text-background/45 break-all">
+            <a
+              href={`mailto:${footerEmail.trim()}`}
+              className="mt-4 block text-[13px] sm:text-sm font-sans text-background/45 break-all hover:text-accent transition-colors duration-300 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 rounded-sm"
+            >
               {footerEmail}
-            </p>
+            </a>
           </div>
 
           <div>
