@@ -512,12 +512,19 @@ const Subscribe = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0 flex-1 flex flex-col justify-between">
-                      <p className="text-[13px] text-muted-foreground mb-1">
+                      <p className="text-[13px] text-muted-foreground mb-3">
                         {mag.description || ""}
                       </p>
-                      <p className="text-base font-semibold text-foreground mb-4">
-                        {formatRupees(mag.price, mag.currency)}
-                      </p>
+                      <div className="space-y-1 mb-4">
+                        {mag.oldPrice != null && mag.oldPrice > 0 ? (
+                          <p className="text-sm text-muted-foreground line-through">
+                            {formatRupees(mag.oldPrice, mag.currency)}
+                          </p>
+                        ) : null}
+                        <p className="text-xl font-bold text-foreground tracking-tight">
+                          {formatRupees(mag.price, mag.currency)}
+                        </p>
+                      </div>
                     </CardContent>
                     <CardFooter className="pt-0 flex flex-col gap-2">
                       <Button variant="outline" className="w-full rounded-lg text-xs font-semibold uppercase tracking-[0.16em] border-border" asChild>
