@@ -261,13 +261,16 @@ const NewsArticle = () => {
 
               <ScrollReveal direction="up" once>
                 <aside className="space-y-8">
-                  <div>
-                    <h2 className="font-serif text-sm uppercase tracking-[0.22em] text-muted-foreground mb-3">
+                  <div className="rounded-2xl border border-border/60 bg-card/40 p-4 sm:p-5">
+                    <h2 className="font-serif text-sm uppercase tracking-[0.22em] text-muted-foreground mb-4">
                       Latest News
                     </h2>
                     <div className="space-y-3 text-sm font-sans">
                       {latest.map((item) => (
-                        <div key={item.id} className="border-b border-border/40 pb-3 last:border-b-0">
+                        <div
+                          key={item.id}
+                          className="rounded-xl border border-border/60 bg-background/60 p-3.5 shadow-sm hover:shadow-md transition-shadow"
+                        >
                           {item.category && (
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.16em] mb-2 ${getCategoryPillClass(
