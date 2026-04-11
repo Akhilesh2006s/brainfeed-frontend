@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_GA_MEASUREMENT_ID?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 declare module "react-pageflip" {
   import type { CSSProperties, ReactNode, ForwardRefExoticComponent, RefAttributes } from "react";
 
@@ -39,6 +47,8 @@ declare module "react-pageflip" {
 declare global {
   interface Window {
     Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+    dataLayer?: unknown[];
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
