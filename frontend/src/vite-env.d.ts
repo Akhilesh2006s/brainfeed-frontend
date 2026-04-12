@@ -1,13 +1,5 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_GA_MEASUREMENT_ID?: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
 declare module "react-pageflip" {
   import type { CSSProperties, ReactNode, ForwardRefExoticComponent, RefAttributes } from "react";
 
