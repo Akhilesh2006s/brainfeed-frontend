@@ -7,6 +7,7 @@ interface CategoryArticle {
   id: string | number;
   image?: string;
   title: string;
+  excerpt?: string;
   date: string;
   tag?: string;
   author?: string;
@@ -62,6 +63,11 @@ const CategorySection = ({ title, articles }: CategorySectionProps) => {
                   <h3 className="font-serif text-lg sm:text-xl md:text-2xl text-foreground leading-snug">
                     {featured.title}
                   </h3>
+                  {featured.excerpt && (
+                    <p className="text-sm text-muted-foreground font-sans leading-relaxed line-clamp-2">
+                      {featured.excerpt}
+                    </p>
+                  )}
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-sans">
                     {featured.author && <span className="text-muted-foreground/90">{featured.author}</span>}
                     <span

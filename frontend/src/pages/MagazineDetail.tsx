@@ -32,6 +32,7 @@ type Product = {
   description?: string;
   tag?: string;
   price?: number;
+  oldPrice?: number;
   currency?: string;
   imageUrl?: string;
 };
@@ -109,13 +110,13 @@ function matchesMagazineId(product: Product, magazineId: string): boolean {
   const text = `${name} ${slug}`;
   if (!text) return false;
 
-  if (magazineId === "high") return /brainfeed high|high/.test(text);
-  if (magazineId === "junior") return /brainfeed junior|junior/.test(text);
-  if (magazineId === "primary-i") return /primary 1|primary i/.test(text);
-  if (magazineId === "primary-ii") return /primary 2|primary ii/.test(text);
+  if (magazineId === "high") return /\bbrainfeed high\b|\bhigh\b/.test(text);
+  if (magazineId === "junior") return /\bbrainfeed junior\b|\bjunior\b/.test(text);
+  if (magazineId === "primary-i") return /\bprimary 1\b|\bprimary i\b(?!\s*i)/.test(text);
+  if (magazineId === "primary-ii") return /\bprimary 2\b|\bprimary ii\b/.test(text);
   if (magazineId === "main") {
-    const isBrandOnly = /brainfeed magazine/.test(text);
-    const isOtherEdition = /high|junior|primary/.test(text);
+    const isBrandOnly = /\bbrainfeed magazine\b/.test(text);
+    const isOtherEdition = /\bhigh\b|\bjunior\b|\bprimary\b/.test(text);
     return isBrandOnly && !isOtherEdition;
   }
   return false;
@@ -156,6 +157,10 @@ const MagazineDetail = () => {
       : magazine.price;
   const displayCurrency = String(productOverride?.currency || "INR").trim() || "INR";
   const displayPriceLabel = formatRupees(displayPrice, displayCurrency);
+  const displayOldPrice =
+    typeof productOverride?.oldPrice === "number" && Number.isFinite(productOverride.oldPrice)
+      ? productOverride.oldPrice
+      : undefined;
   const displayDetails = String(productOverride?.description || "").trim() || magazine.details;
 
   const handleAddToCart = () => {
@@ -224,6 +229,11 @@ const MagazineDetail = () => {
             <ScrollReveal direction="up" once>
                 <div className="space-y-5">
                 <div>
+                  {displayOldPrice != null && displayOldPrice > displayPrice ? (
+                    <p className="text-sm text-muted-foreground line-through">
+                      {formatRupees(displayOldPrice, displayCurrency)}
+                    </p>
+                  ) : null}
                   <p className="text-2xl md:text-3xl font-semibold text-foreground">
                     {displayPriceLabel}
                   </p>

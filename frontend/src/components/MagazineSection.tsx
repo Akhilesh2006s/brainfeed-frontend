@@ -26,13 +26,13 @@ function normalize(s: string): string {
 function matchesMagazineId(product: Product, magazineId: string): boolean {
   const text = `${normalize(product.name || "")} ${normalize(product.slug || "")}`;
   if (!text) return false;
-  if (magazineId === "high") return /brainfeed high|high/.test(text);
-  if (magazineId === "junior") return /brainfeed junior|junior/.test(text);
-  if (magazineId === "primary-i") return /primary 1|primary i/.test(text);
-  if (magazineId === "primary-ii") return /primary 2|primary ii/.test(text);
+  if (magazineId === "high") return /\bbrainfeed high\b|\bhigh\b/.test(text);
+  if (magazineId === "junior") return /\bbrainfeed junior\b|\bjunior\b/.test(text);
+  if (magazineId === "primary-i") return /\bprimary 1\b|\bprimary i\b(?!\s*i)/.test(text);
+  if (magazineId === "primary-ii") return /\bprimary 2\b|\bprimary ii\b/.test(text);
   if (magazineId === "main") {
-    const isMain = /brainfeed magazine/.test(text);
-    const isOther = /high|junior|primary/.test(text);
+    const isMain = /\bbrainfeed magazine\b/.test(text);
+    const isOther = /\bhigh\b|\bjunior\b|\bprimary\b/.test(text);
     return isMain && !isOther;
   }
   return false;

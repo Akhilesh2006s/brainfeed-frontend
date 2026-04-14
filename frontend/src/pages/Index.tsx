@@ -15,6 +15,7 @@ type NewsArticle = {
   id: string | number;
   imageUrl?: string;
   title: string;
+  subtitle?: string;
   excerpt: string;
   date: string;
   category: string;
@@ -61,6 +62,7 @@ const Index = () => {
     id: a.id,
     image: a.imageUrl,
     title: a.title,
+    excerpt: String(a.subtitle || "").trim() || a.excerpt,
     date: a.date,
     tag: a.category,
     readTime: a.readTime,

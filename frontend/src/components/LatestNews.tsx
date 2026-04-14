@@ -11,6 +11,7 @@ type NewsArticle = {
   imageUrl?: string;
   imageAlt?: string;
   title: string;
+  subtitle?: string;
   excerpt: string;
   date: string;
   category: string;
@@ -26,6 +27,12 @@ interface LatestNewsProps {
 
 function getImageSrc(article: Pick<NewsArticle, "imageUrl">) {
   return (article.imageUrl || "").trim();
+}
+
+function getSummaryText(article: Pick<NewsArticle, "subtitle" | "excerpt">) {
+  const subtitle = String(article.subtitle || "").trim();
+  if (subtitle) return subtitle;
+  return String(article.excerpt || "").trim();
 }
 
 
@@ -100,7 +107,7 @@ const LatestNews = ({ articles: articlesProp, featuredId, sideIds }: LatestNewsP
                     {featured.title}
                   </h3>
                   <p className="text-sm md:text-base text-muted-foreground font-sans leading-relaxed">
-                    {featured.excerpt}
+                    {getSummaryText(featured)}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-sans">
                     {featured.author && (
@@ -143,7 +150,7 @@ const LatestNews = ({ articles: articlesProp, featuredId, sideIds }: LatestNewsP
                         {article.title}
                       </h4>
                       <p className="hidden md:block text-xs text-muted-foreground/90 font-sans line-clamp-2">
-                        {article.excerpt}
+                        {getSummaryText(article)}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-sans">
                         {article.author && (
