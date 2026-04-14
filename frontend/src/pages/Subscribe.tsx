@@ -196,7 +196,7 @@ const Subscribe = () => {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/products`)
+    fetch(`${API_BASE}/api/products`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data: Product[]) => {
         if (Array.isArray(data) && data.length) {

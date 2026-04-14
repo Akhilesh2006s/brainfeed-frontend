@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
@@ -22,6 +22,18 @@ type MagazineConfig = {
   blurb: string;
   category: string;
   details: string;
+};
+
+type Product = {
+  id?: string;
+  slug?: string;
+  category?: string;
+  name?: string;
+  description?: string;
+  tag?: string;
+  price?: number;
+  currency?: string;
+  imageUrl?: string;
 };
 
 const MAGAZINES: Record<string, MagazineConfig> = {
@@ -82,10 +94,37 @@ const MAGAZINES: Record<string, MagazineConfig> = {
   },
 };
 
-const formatRupees = (amount: number) =>
+const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
+
+function normalize(s: string): string {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function matchesMagazineId(product: Product, magazineId: string): boolean {
+  const name = normalize(product.name || "");
+  const slug = normalize(product.slug || "");
+  const text = `${name} ${slug}`;
+  if (!text) return false;
+
+  if (magazineId === "high") return /brainfeed high|high/.test(text);
+  if (magazineId === "junior") return /brainfeed junior|junior/.test(text);
+  if (magazineId === "primary-i") return /primary 1|primary i/.test(text);
+  if (magazineId === "primary-ii") return /primary 2|primary ii/.test(text);
+  if (magazineId === "main") {
+    const isBrandOnly = /brainfeed magazine/.test(text);
+    const isOtherEdition = /high|junior|primary/.test(text);
+    return isBrandOnly && !isOtherEdition;
+  }
+  return false;
+}
+
+const formatRupees = (amount: number, currency = "INR") =>
   amount.toLocaleString("en-IN", {
     style: "currency",
-    currency: "INR",
+    currency,
     maximumFractionDigits: 0,
   });
 
@@ -95,14 +134,37 @@ const MagazineDetail = () => {
   const { addItem } = useCart();
   const { settings } = useSiteSettings();
   const [quantity, setQuantity] = useState(1);
+  const [magazineProducts, setMagazineProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/products?category=magazine`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: Product[]) => setMagazineProducts(Array.isArray(rows) ? rows : []))
+      .catch(() => setMagazineProducts([]));
+  }, []);
+
+  const productOverride = useMemo(
+    () => magazineProducts.find((p) => matchesMagazineId(p, magazine.id)),
+    [magazineProducts, magazine.id],
+  );
+
+  const coverSrc = String(productOverride?.imageUrl || "").trim() || magazine.cover;
+  const displayName = String(productOverride?.name || "").trim() || magazine.name;
+  const displayPrice =
+    typeof productOverride?.price === "number" && Number.isFinite(productOverride.price)
+      ? productOverride.price
+      : magazine.price;
+  const displayCurrency = String(productOverride?.currency || "INR").trim() || "INR";
+  const displayPriceLabel = formatRupees(displayPrice, displayCurrency);
+  const displayDetails = String(productOverride?.description || "").trim() || magazine.details;
 
   const handleAddToCart = () => {
     if (quantity <= 0) return;
     addItem(
       {
         id: `magazine-${magazine.id}`,
-        name: magazine.name,
-        price: magazine.price,
+        name: displayName,
+        price: displayPrice,
       },
       quantity,
     );
@@ -135,10 +197,10 @@ const MagazineDetail = () => {
                   Primary Magazines
                 </Link>
                 <span className="mx-1">›</span>
-                <span className="text-foreground">{magazine.name}</span>
+                <span className="text-foreground">{displayName}</span>
               </nav>
               <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl text-foreground">
-                {magazine.name}
+                {displayName}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground font-sans">
                 {magazine.blurb}
@@ -152,8 +214,8 @@ const MagazineDetail = () => {
             <ScrollReveal direction="up" once>
               <div className="w-full max-w-[520px] mx-auto border border-border/60 rounded-xl overflow-hidden bg-card shadow-sm">
                 <img
-                  src={magazine.cover}
-                  alt={magazine.name}
+                  src={coverSrc}
+                  alt={displayName}
                   className="w-full h-auto object-cover"
                 />
               </div>
@@ -163,7 +225,7 @@ const MagazineDetail = () => {
                 <div className="space-y-5">
                 <div>
                   <p className="text-2xl md:text-3xl font-semibold text-foreground">
-                    {magazine.priceLabel || formatRupees(magazine.price)}
+                    {displayPriceLabel}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground font-sans">
                     {magazine.blurb}
@@ -171,7 +233,7 @@ const MagazineDetail = () => {
                 </div>
 
                 <div className="space-y-2 text-sm text-muted-foreground font-sans">
-                  <p>{magazine.details}</p>
+                  <p>{displayDetails}</p>
                   <p className="mt-2">
                     Annual print subscription. Final shipping arrangements and payment will be
                     confirmed by the Brainfeed team after you submit your order.

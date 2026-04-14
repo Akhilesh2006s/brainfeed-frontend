@@ -82,7 +82,7 @@ const ProductDetail = () => {
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
-    fetch(`${API_BASE}/api/products`)
+    fetch(`${API_BASE}/api/products`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((items: Product[]) => {
         const found = Array.isArray(items) ? items.find((p) => p.slug === slug) : undefined;

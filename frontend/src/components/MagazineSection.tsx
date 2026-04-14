@@ -8,6 +8,36 @@ import ScrollReveal from "./ScrollReveal";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
+type Product = {
+  name?: string;
+  slug?: string;
+  imageUrl?: string;
+  description?: string;
+  tag?: string;
+};
+
+function normalize(s: string): string {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function matchesMagazineId(product: Product, magazineId: string): boolean {
+  const text = `${normalize(product.name || "")} ${normalize(product.slug || "")}`;
+  if (!text) return false;
+  if (magazineId === "high") return /brainfeed high|high/.test(text);
+  if (magazineId === "junior") return /brainfeed junior|junior/.test(text);
+  if (magazineId === "primary-i") return /primary 1|primary i/.test(text);
+  if (magazineId === "primary-ii") return /primary 2|primary ii/.test(text);
+  if (magazineId === "main") {
+    const isMain = /brainfeed magazine/.test(text);
+    const isOther = /high|junior|primary/.test(text);
+    return isMain && !isOther;
+  }
+  return false;
+}
+
 type Magazine = {
   id: string;
   name: string;
@@ -22,19 +52,13 @@ interface MagazineSectionProps {
 }
 
 const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
-  const [highCoverFromProducts, setHighCoverFromProducts] = useState("");
+  const [magazineProducts, setMagazineProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/products?category=magazine`)
+    fetch(`${API_BASE}/api/products?category=magazine`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
-      .then((rows: Array<{ name?: string; slug?: string; imageUrl?: string }>) => {
-        const list = Array.isArray(rows) ? rows : [];
-        const high = list.find((p) =>
-          /high/i.test(String(p?.name || "")) || /high/i.test(String(p?.slug || "")),
-        );
-        setHighCoverFromProducts(String(high?.imageUrl || "").trim());
-      })
-      .catch(() => setHighCoverFromProducts(""));
+      .then((rows: Product[]) => setMagazineProducts(Array.isArray(rows) ? rows : []))
+      .catch(() => setMagazineProducts([]));
   }, []);
 
   const magazines: Magazine[] = [
@@ -76,11 +100,27 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
       edition: "Volume X · Issue 8 · February 2026",
       ageGroup: "For Grades VI - XII · 10 issues/year",
       highlight: "A focused edition for teen learners with aspirational stories and skill-building content.",
-      cover: highCoverFromProducts || mainCover,
+      cover: mainCover,
     },
   ];
 
-  const magazineById = new Map(magazines.map((m) => [m.id, m]));
+  const magazinesHydrated: Magazine[] = magazines.map((m) => {
+    const product = magazineProducts.find((p) => matchesMagazineId(p, m.id));
+    if (!product) return m;
+    const nextName = String(product.name || "").trim();
+    const nextCover = String(product.imageUrl || "").trim();
+    const nextHighlight = String(product.description || "").trim();
+    const nextTag = String(product.tag || "").trim();
+    return {
+      ...m,
+      name: nextName || m.name,
+      cover: nextCover || m.cover,
+      highlight: nextHighlight || m.highlight,
+      ageGroup: nextTag || m.ageGroup,
+    };
+  });
+
+  const magazineById = new Map(magazinesHydrated.map((m) => [m.id, m]));
   // Match admin “Position 1–5”: pad to 5 slots so legacy saves (4 ids) still map to positions before padding.
   const slotIds: string[] = [...(magazineIds || [])];
   while (slotIds.length < 5) slotIds.push("");
@@ -93,7 +133,7 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
     })
     .filter((m): m is Magazine => Boolean(m));
   const seen = new Set(fromSlots.map((m) => m.id));
-  const visibleMagazines = [...fromSlots, ...magazines.filter((m) => !seen.has(m.id))].slice(0, 5);
+  const visibleMagazines = [...fromSlots, ...magazinesHydrated.filter((m) => !seen.has(m.id))].slice(0, 5);
 
   return (
     <section className="py-10 sm:py-12 md:py-16 lg:py-24 bg-secondary/60">
