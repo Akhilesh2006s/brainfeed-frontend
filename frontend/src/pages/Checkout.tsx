@@ -14,6 +14,11 @@ import { toast } from "sonner";
 const formatRupees = (amount: number) =>
   amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
+const isMagazineItem = (item: { id: string; name: string; category?: string }) => {
+  if (item.category === "magazine") return true;
+  return String(item.id || "").toLowerCase().startsWith("magazine-");
+};
+
 function loadRazorpayScript(): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
   if (window.Razorpay) return Promise.resolve(true);
@@ -42,9 +47,13 @@ const Checkout = () => {
   const [isPaying, setIsPaying] = useState(false);
   const orderLabel = useMemo(() => (items.length === 1 ? items[0].name : `Brainfeed order (${items.length} items)`), [items]);
   const totalQuantity = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const hasOnlyMagazines = useMemo(
+    () => hasItems && items.every((item) => isMagazineItem(item)),
+    [hasItems, items],
+  );
   const shippingCharge = useMemo(
-    () => (hasItems && totalQuantity === 1 ? 300 : 0),
-    [hasItems, totalQuantity],
+    () => (hasOnlyMagazines && totalQuantity === 1 ? 300 : 0),
+    [hasOnlyMagazines, totalQuantity],
   );
   const totalAmount = subtotal + shippingCharge;
 
@@ -353,7 +362,7 @@ const Checkout = () => {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Rs. 300 shipping is added when total quantity is 1. Quantity 2 or more gets free shipping.
+                    Rs. 300 shipping is added only for Brainfeed Magazines when quantity is 1. Quantity 2 or more gets free shipping.
                   </p>
                   <Button
                     type="button"

@@ -9,13 +9,19 @@ import { useNavigate } from "react-router-dom";
 const formatRupees = (amount: number) =>
   amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
+const isMagazineItem = (item: { id: string; name: string; category?: string }) => {
+  if (item.category === "magazine") return true;
+  return String(item.id || "").toLowerCase().startsWith("magazine-");
+};
+
 const Cart = () => {
   const { items, removeItem, updateQuantity, clearCart, subtotal } = useCart();
   const navigate = useNavigate();
 
   const hasItems = items.length > 0;
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const shippingCharge = hasItems && totalQuantity === 1 ? 300 : 0;
+  const hasOnlyMagazines = hasItems && items.every((item) => isMagazineItem(item));
+  const shippingCharge = hasOnlyMagazines && totalQuantity === 1 ? 300 : 0;
   const total = subtotal + shippingCharge;
 
   return (
@@ -134,7 +140,7 @@ const Cart = () => {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Rs. 300 shipping is added when total quantity is 1. Quantity 2 or more gets free shipping.
+                    Rs. 300 shipping is added only for Brainfeed Magazines when quantity is 1. Quantity 2 or more gets free shipping.
                   </p>
                   <Button
                     type="button"
