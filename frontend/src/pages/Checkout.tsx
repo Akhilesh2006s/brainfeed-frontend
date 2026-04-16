@@ -9,6 +9,7 @@ import { useCart } from "@/context/CartContext";
 import { buildApiUrl } from "@/lib/apiUrl";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const formatRupees = (amount: number) =>
@@ -56,6 +57,11 @@ const Checkout = () => {
     [hasOnlyMagazines, totalQuantity],
   );
   const totalAmount = subtotal + shippingCharge;
+  const [paymentResult, setPaymentResult] = useState<{
+    status: "success" | "failed";
+    title: string;
+    description: string;
+  } | null>(null);
 
   const [details, setDetails] = useState({
     name: "",
@@ -102,6 +108,7 @@ const Checkout = () => {
     try {
       if (!validateDetails()) return;
       setIsPaying(true);
+      setPaymentResult(null);
 
       const ok = await loadRazorpayScript();
       if (!ok || !window.Razorpay) {
@@ -185,19 +192,52 @@ const Checkout = () => {
           });
           const verifyJson = await verifyRes.json().catch(() => ({}));
           if (!verifyRes.ok || !verifyJson?.ok) {
+            setPaymentResult({
+              status: "failed",
+              title: "Payment failed",
+              description: verifyJson?.error || "Payment verification failed. Please try again.",
+            });
             toast.error(verifyJson?.error || "Payment verification failed");
             return;
           }
           clearCart();
+          setPaymentResult({
+            status: "success",
+            title: "Successfully paid",
+            description: "Order confirmed. Our team will process your subscription shortly.",
+          });
           toast.success("Payment successful!");
-          navigate("/subscribe");
         },
         prefill: {
           name: details.name.trim(),
           email: details.email.trim(),
           contact: details.mobile.trim(),
         },
+        modal: {
+          ondismiss: () => {
+            setPaymentResult((current) =>
+              current ?? {
+                status: "failed",
+                title: "Payment failed",
+                description: "Payment was cancelled or not completed.",
+              },
+            );
+          },
+        },
         theme: { color: "#f97316" },
+      }) as {
+        open: () => void;
+        on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void;
+      };
+
+      rzp.on("payment.failed", (response: { error?: { description?: string } }) => {
+        const description = response?.error?.description || "Payment failed. Please try again.";
+        setPaymentResult({
+          status: "failed",
+          title: "Payment failed",
+          description,
+        });
+        toast.error(description);
       });
 
       rzp.open();
@@ -249,6 +289,52 @@ const Checkout = () => {
             </ScrollReveal>
           </div>
         </section>
+
+        {paymentResult && (
+          <section className="pt-8">
+            <div className="container">
+              <div
+                className={`rounded-2xl border p-5 md:p-6 ${
+                  paymentResult.status === "success"
+                    ? "border-emerald-200 bg-emerald-50/70"
+                    : "border-rose-200 bg-rose-50/70"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {paymentResult.status === "success" ? (
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <XCircle className="mt-0.5 h-5 w-5 text-rose-600 shrink-0" />
+                  )}
+                  <div>
+                    <h2 className="font-serif text-xl text-foreground">{paymentResult.title}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{paymentResult.description}</p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {paymentResult.status === "success" ? (
+                        <Button
+                          type="button"
+                          className="rounded-full text-xs font-semibold uppercase tracking-[0.18em]"
+                          onClick={() => navigate("/subscribe")}
+                        >
+                          Continue
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-full text-xs font-semibold uppercase tracking-[0.18em]"
+                          onClick={() => setPaymentResult(null)}
+                        >
+                          Try again
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="py-10 md:py-14">
           <div className="container grid gap-10 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.3fr)] items-start">
