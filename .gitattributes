@@ -1,3 +1,0 @@
-# Use LF in the repo for cross-platform consistency
-* text=auto eol=lf
-*.{cjs,js,ts,tsx,json,md,yml,yaml} text eol=lf
