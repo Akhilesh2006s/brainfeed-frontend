@@ -36,11 +36,17 @@ function loadRazorpayScript(): Promise<boolean> {
 }
 
 const Checkout = () => {
-  const { items, subtotal } = useCart();
+  const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
   const hasItems = items.length > 0;
   const [isPaying, setIsPaying] = useState(false);
   const orderLabel = useMemo(() => (items.length === 1 ? items[0].name : `Brainfeed order (${items.length} items)`), [items]);
+  const totalQuantity = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const shippingCharge = useMemo(
+    () => (hasItems && totalQuantity === 1 ? 300 : 0),
+    [hasItems, totalQuantity],
+  );
+  const totalAmount = subtotal + shippingCharge;
 
   const [details, setDetails] = useState({
     name: "",
@@ -59,10 +65,7 @@ const Checkout = () => {
       { key: "address", label: "Address" },
       { key: "pin", label: "Pin" },
       { key: "mobile", label: "Mobile No." },
-      { key: "landline", label: "Land Line No." },
       { key: "email", label: "Email" },
-      { key: "website", label: "Website" },
-      { key: "institution", label: "Name of the Institution" },
     ];
 
     for (const f of requiredFields) {
@@ -97,7 +100,7 @@ const Checkout = () => {
         return;
       }
 
-      const amountPaise = Math.round(subtotal * 100);
+      const amountPaise = Math.round(totalAmount * 100);
 
       const orderRes = await fetch(buildApiUrl("/payments/razorpay/order"), {
         method: "POST",
@@ -139,13 +142,39 @@ const Checkout = () => {
           const verifyRes = await fetch(buildApiUrl("/payments/razorpay/verify"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(response),
+            body: JSON.stringify({
+              ...response,
+              details: {
+                name: details.name.trim(),
+                address: details.address.trim(),
+                pin: details.pin.trim(),
+                mobile: details.mobile.trim(),
+                landline: details.landline.trim(),
+                email: details.email.trim(),
+                website: details.website.trim(),
+                institution: details.institution.trim(),
+              },
+              items: items.map((item) => ({
+                id: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                category: item.category,
+              })),
+              source: "website",
+              subtotal,
+              shippingCharge,
+              total: totalAmount,
+              currency: "INR",
+              planName: orderLabel,
+            }),
           });
           const verifyJson = await verifyRes.json().catch(() => ({}));
           if (!verifyRes.ok || !verifyJson?.ok) {
             toast.error(verifyJson?.error || "Payment verification failed");
             return;
           }
+          clearCart();
           toast.success("Payment successful!");
           navigate("/subscribe");
         },
@@ -214,7 +243,7 @@ const Checkout = () => {
                 <div className="rounded-xl border border-border/60 bg-card/60 p-6 md:p-7 space-y-3">
                   <h2 className="font-serif text-lg md:text-xl text-foreground mb-1">Your details</h2>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Please fill in all fields so our team can process your subscription and delivery.
+                    Please fill in the required fields so our team can process your subscription and delivery.
                   </p>
                   <div className="space-y-3">
                     <Input
@@ -253,8 +282,7 @@ const Checkout = () => {
                     </div>
                     <Input
                       data-checkout-field="landline"
-                      placeholder="Land Line No. *"
-                      required
+                      placeholder="Land Line No. (optional)"
                       className="h-9 text-sm"
                       value={details.landline}
                       onChange={(e) => setDetails((d) => ({ ...d, landline: e.target.value }))}
@@ -270,16 +298,14 @@ const Checkout = () => {
                     />
                     <Input
                       data-checkout-field="website"
-                      placeholder="Website *"
-                      required
+                      placeholder="Website (optional)"
                       className="h-9 text-sm"
                       value={details.website}
                       onChange={(e) => setDetails((d) => ({ ...d, website: e.target.value }))}
                     />
                     <Input
                       data-checkout-field="institution"
-                      placeholder="Name of the Institution *"
-                      required
+                      placeholder="Name of the Institution (optional)"
                       className="h-9 text-sm"
                       value={details.institution}
                       onChange={(e) => setDetails((d) => ({ ...d, institution: e.target.value }))}
@@ -309,13 +335,25 @@ const Checkout = () => {
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t border-border/50">
-                    <span className="font-medium text-foreground">Total</span>
-                    <span className="font-semibold text-foreground">
+                    <span>Subtotal</span>
+                    <span className="font-medium text-foreground">
                       {formatRupees(subtotal)}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Shipping</span>
+                    <span className="font-medium text-foreground">
+                      {shippingCharge > 0 ? formatRupees(shippingCharge) : "Free"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Total</span>
+                    <span className="font-semibold text-foreground">
+                      {formatRupees(totalAmount)}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    By continuing, you agree that Brainfeed will contact you with payment instructions and shipping details.
+                    Rs. 300 shipping is added when total quantity is 1. Quantity 2 or more gets free shipping.
                   </p>
                   <Button
                     type="button"

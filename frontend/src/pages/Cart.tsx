@@ -14,6 +14,9 @@ const Cart = () => {
   const navigate = useNavigate();
 
   const hasItems = items.length > 0;
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const shippingCharge = hasItems && totalQuantity === 1 ? 300 : 0;
+  const total = subtotal + shippingCharge;
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,8 +121,20 @@ const Cart = () => {
                       {formatRupees(subtotal)}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Shipping</span>
+                    <span className="font-medium text-foreground">
+                      {shippingCharge > 0 ? formatRupees(shippingCharge) : "Free"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground border-t border-border/50 pt-3">
+                    <span className="font-medium text-foreground">Total</span>
+                    <span className="font-semibold text-foreground">
+                      {formatRupees(total)}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    After reviewing your cart, continue to checkout to fill in your details and complete payment.
+                    Rs. 300 shipping is added when total quantity is 1. Quantity 2 or more gets free shipping.
                   </p>
                   <Button
                     type="button"

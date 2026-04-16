@@ -69,6 +69,7 @@ const AdminSubscriptionList = () => {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [syncingHistory, setSyncingHistory] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | "all">("all");
 
   const load = () => {
@@ -145,6 +146,34 @@ const AdminSubscriptionList = () => {
     }
   };
 
+  const syncRazorpayHistory = async () => {
+    if (!token) return;
+    setSyncingHistory(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/subscriptions/backfill-razorpay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ count: 100, skip: 0 }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(j?.error || "Failed to sync payment history.");
+        return;
+      }
+      toast.success(
+        `Sync complete. Added ${j?.created ?? 0}, skipped ${j?.skipped ?? 0}, failed ${j?.failed ?? 0}.`,
+      );
+      load();
+    } catch {
+      toast.error("Failed to sync payment history.");
+    } finally {
+      setSyncingHistory(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
@@ -155,6 +184,17 @@ const AdminSubscriptionList = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs"
+            onClick={syncRazorpayHistory}
+            disabled={syncingHistory}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${syncingHistory ? "animate-spin" : ""}`} />
+            {syncingHistory ? "Syncing…" : "Sync old payments"}
+          </Button>
           <Select
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v as SubscriptionStatus | "all")}

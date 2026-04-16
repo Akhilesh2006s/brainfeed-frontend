@@ -5,6 +5,7 @@ type CartItem = {
   name: string;
   price: number;
   quantity: number;
+  category?: "pre-primary" | "library" | "classroom" | "magazine";
 };
 
 type CartContextValue = {

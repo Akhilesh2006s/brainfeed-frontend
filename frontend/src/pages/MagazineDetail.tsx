@@ -170,6 +170,7 @@ const MagazineDetail = () => {
         id: `magazine-${magazine.id}`,
         name: displayName,
         price: displayPrice,
+        category: "magazine",
       },
       quantity,
     );

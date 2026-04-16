@@ -250,6 +250,50 @@ async function verifyRazorpayPayment(req, res) {
 
     if (!ok) return res.status(400).json({ ok: false, error: "Invalid signature" });
 
+    const details = typeof req.body?.details === "object" && req.body?.details ? req.body.details : {};
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    const items = rawItems
+      .map((item) => ({
+        name: String(item?.name || "").trim(),
+        quantity: Math.max(1, Number(item?.quantity) || 1),
+        price: Math.max(0, Number(item?.price) || 0),
+      }))
+      .filter((item) => item.name);
+    const total =
+      Math.max(0, Number(req.body?.total) || 0) ||
+      items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const planName =
+      String(req.body?.planName || "").trim() ||
+      (items.length === 1 ? items[0].name : `Brainfeed order (${items.length} items)`);
+
+    await Subscription.create({
+      userName: String(details?.name || "").trim(),
+      email: String(details?.email || "").trim().toLowerCase(),
+      source: String(req.body?.source || "website").trim() || "website",
+      planName: planName || "Brainfeed order",
+      planType: items.length === 1 ? items[0].name : "Mixed subscription order",
+      notes: [
+        String(details?.address || "").trim(),
+        String(details?.pin || "").trim() ? `PIN: ${String(details.pin).trim()}` : "",
+        String(details?.mobile || "").trim() ? `Mobile: ${String(details.mobile).trim()}` : "",
+        String(details?.landline || "").trim() ? `Landline: ${String(details.landline).trim()}` : "",
+        String(details?.website || "").trim() ? `Website: ${String(details.website).trim()}` : "",
+        String(details?.institution || "").trim()
+          ? `Institution: ${String(details.institution).trim()}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      items,
+      currency: String(req.body?.currency || "INR").trim() || "INR",
+      total,
+      status: "active",
+      metadata: {
+        razorpayOrderId: orderId,
+        razorpayPaymentId: paymentId,
+      },
+    });
+
     res.json({ ok: true });
   } catch (e) {
     console.error("Razorpay verify error:", e);
@@ -1361,6 +1405,141 @@ app.patch("/api/admin/subscriptions/:id", adminAuthMiddleware, async (req, res) 
     res.status(500).json({ error: e.message || "Failed to update subscription" });
   }
 });
+
+/**
+ * Backfill old captured Razorpay payments into Subscription records.
+ * Safe to run multiple times: skips entries already linked by payment id.
+ */
+app.post(
+  "/api/admin/subscriptions/backfill-razorpay",
+  adminAuthMiddleware,
+  requireAdminRole("admin"),
+  async (req, res) => {
+    try {
+      if (!razorpayClient) {
+        return res.status(500).json({ error: "Razorpay is not configured (missing env vars)" });
+      }
+
+      const rawCount = Number(req.body?.count ?? req.query?.count ?? 100);
+      const rawSkip = Number(req.body?.skip ?? req.query?.skip ?? 0);
+      // Razorpay payments.list supports up to 100 records per call.
+      const count = Math.max(1, Math.min(100, Number.isFinite(rawCount) ? rawCount : 100));
+      const skip = Math.max(0, Number.isFinite(rawSkip) ? rawSkip : 0);
+      let page;
+      try {
+        page = await razorpayClient.payments.all({ count, skip });
+      } catch (listError) {
+        const detail =
+          listError?.error?.description ||
+          listError?.description ||
+          listError?.message ||
+          "Failed to fetch payment list from Razorpay";
+        return res.status(502).json({ error: detail });
+      }
+      const payments = Array.isArray(page?.items) ? page.items : [];
+
+      let created = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (const payment of payments) {
+        try {
+          if (!payment || payment.status !== "captured") {
+            skipped += 1;
+            continue;
+          }
+
+          const paymentId = String(payment.id || "").trim();
+          if (!paymentId) {
+            skipped += 1;
+            continue;
+          }
+
+          const exists = await Subscription.findOne({ "metadata.razorpayPaymentId": paymentId }).lean();
+          if (exists) {
+            skipped += 1;
+            continue;
+          }
+
+          const orderId = String(payment.order_id || "").trim();
+          let orderNotes = {};
+          let orderReceipt = "";
+          if (orderId) {
+            try {
+              const order = await razorpayClient.orders.fetch(orderId);
+              orderNotes = typeof order?.notes === "object" && order.notes ? order.notes : {};
+              orderReceipt = String(order?.receipt || "").trim();
+            } catch (_) {
+              // Keep backfill resilient; we can still create from payment payload.
+            }
+          }
+
+          const mergedNotes = {
+            ...(typeof payment.notes === "object" && payment.notes ? payment.notes : {}),
+            ...(typeof orderNotes === "object" && orderNotes ? orderNotes : {}),
+          };
+
+          const itemsText = String(mergedNotes.items || mergedNotes.item || "").trim();
+          const planName = String(
+            mergedNotes.planName ||
+              mergedNotes.plan ||
+              itemsText ||
+              orderReceipt ||
+              `Razorpay order ${orderId || paymentId}`,
+          ).trim();
+          const userName = String(mergedNotes.customerName || mergedNotes.name || "").trim();
+          const email = String(
+            mergedNotes.customerEmail || payment.email || mergedNotes.email || "",
+          ).trim().toLowerCase();
+          const total = Math.max(0, Number(payment.amount || 0) / 100);
+          const currency = String(payment.currency || "INR").trim() || "INR";
+          const contact = String(payment.contact || "").trim();
+          const createdAtIso = payment.created_at
+            ? new Date(Number(payment.created_at) * 1000).toISOString()
+            : "";
+
+          await Subscription.create({
+            userName,
+            email,
+            source: "razorpay-backfill",
+            planName: planName || "Razorpay payment",
+            planType: "Backfilled payment",
+            notes: [
+              itemsText ? `Items: ${itemsText}` : "",
+              contact ? `Mobile: ${contact}` : "",
+              createdAtIso ? `Paid at: ${createdAtIso}` : "",
+            ]
+              .filter(Boolean)
+              .join(" | "),
+            items: [
+              {
+                name: planName || "Razorpay payment",
+                quantity: 1,
+                price: total,
+              },
+            ],
+            currency,
+            total,
+            status: "active",
+            metadata: {
+              razorpayOrderId: orderId,
+              razorpayPaymentId: paymentId,
+              backfilled: true,
+              paymentMethod: String(payment.method || "").trim(),
+            },
+          });
+          created += 1;
+        } catch (_) {
+          failed += 1;
+        }
+      }
+
+      res.json({ ok: true, scanned: payments.length, created, skipped, failed });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to backfill Razorpay payments" });
+    }
+  },
+);
 
 // ----- Admin backup (MongoDB + Cloudinary URL list; works for Atlas and self-hosted) -----
 function collectCloudinaryUrls(posts) {

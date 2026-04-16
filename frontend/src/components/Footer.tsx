@@ -34,7 +34,13 @@ const Footer = () => {
           transition={{ duration: 0.6 }}
         >
           <div className="sm:col-span-2 md:col-span-1">
-            <img src={logo} alt="Brainfeed Magazine" className="h-9 sm:h-10 brightness-200 w-auto" />
+            <a href="/" className="inline-flex items-center">
+              <img
+                src={logo}
+                alt="Brainfeed Magazine"
+                className="h-8 sm:h-9 md:h-10 w-auto object-contain"
+              />
+            </a>
             <p className="mt-4 sm:mt-5 text-[13px] sm:text-sm leading-[1.8] font-sans text-background/50">
               {description}
             </p>
