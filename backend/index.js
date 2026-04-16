@@ -284,6 +284,14 @@ async function verifyRazorpayPayment(req, res) {
       ]
         .filter(Boolean)
         .join(" | "),
+      deliveryAddress: {
+        address: String(details?.address || "").trim(),
+        pin: String(details?.pin || "").trim(),
+        mobile: String(details?.mobile || "").trim(),
+        landline: String(details?.landline || "").trim(),
+        website: String(details?.website || "").trim(),
+        institution: String(details?.institution || "").trim(),
+      },
       items,
       currency: String(req.body?.currency || "INR").trim() || "INR",
       total,
@@ -298,6 +306,159 @@ async function verifyRazorpayPayment(req, res) {
   } catch (e) {
     console.error("Razorpay verify error:", e);
     res.status(500).json({ ok: false, error: e?.message || "Verification failed" });
+  }
+}
+
+function buildSubscriptionPayloadFromRazorpay(payment, order, existingSub) {
+  const orderNotes = typeof order?.notes === "object" && order.notes ? order.notes : {};
+  const paymentNotes = typeof payment?.notes === "object" && payment.notes ? payment.notes : {};
+  const mergedNotes = { ...paymentNotes, ...orderNotes };
+  const itemsText = String(mergedNotes.items || mergedNotes.item || "").trim();
+  const total = Math.max(0, Number(payment?.amount || 0) / 100);
+  const currency = String(payment?.currency || "INR").trim() || "INR";
+  const userName = String(
+    mergedNotes.customerName || mergedNotes.name || payment?.name || existingSub?.userName || "",
+  ).trim();
+  const email = String(
+    mergedNotes.customerEmail || payment?.email || mergedNotes.email || existingSub?.email || "",
+  )
+    .trim()
+    .toLowerCase();
+  const mobile = String(mergedNotes.customerMobile || payment?.contact || "").trim();
+  const deliveryAddress = {
+    address:
+      String(mergedNotes.address || "").trim() ||
+      String(existingSub?.deliveryAddress?.address || "").trim(),
+    pin:
+      String(mergedNotes.pin || "").trim() ||
+      String(existingSub?.deliveryAddress?.pin || "").trim(),
+    mobile: mobile || String(existingSub?.deliveryAddress?.mobile || "").trim(),
+    landline:
+      String(mergedNotes.landline || "").trim() ||
+      String(existingSub?.deliveryAddress?.landline || "").trim(),
+    website:
+      String(mergedNotes.website || "").trim() ||
+      String(existingSub?.deliveryAddress?.website || "").trim(),
+    institution:
+      String(mergedNotes.institution || "").trim() ||
+      String(existingSub?.deliveryAddress?.institution || "").trim(),
+  };
+  const addressParts = [
+    deliveryAddress.address,
+    deliveryAddress.pin ? `PIN: ${deliveryAddress.pin}` : "",
+    deliveryAddress.landline
+      ? `Landline: ${deliveryAddress.landline}`
+      : "",
+    deliveryAddress.website ? `Website: ${deliveryAddress.website}` : "",
+    deliveryAddress.institution
+      ? `Institution: ${deliveryAddress.institution}`
+      : "",
+  ].filter(Boolean);
+  const preservedNotes = String(existingSub?.notes || "")
+    .split("|")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter(
+      (part) => !/^(Items:|Mobile:|Method:)/i.test(part)
+    );
+  const planName = String(
+    mergedNotes.planName ||
+      mergedNotes.plan ||
+      itemsText ||
+      payment?.description ||
+      order?.receipt ||
+      existingSub?.planName ||
+      `Razorpay payment ${String(payment?.id || "").trim()}`,
+  ).trim();
+
+  return {
+    userName,
+    email,
+    source: "razorpay",
+    planName,
+    planType: itemsText || String(existingSub?.planType || "Razorpay payment").trim(),
+    notes: Array.from(new Set([...addressParts, ...preservedNotes])).join(" | "),
+    deliveryAddress,
+    items:
+      itemsText || planName
+        ? [
+            {
+              name: itemsText || planName,
+              quantity: 1,
+              price: total,
+            },
+          ]
+        : Array.isArray(existingSub?.items)
+        ? existingSub.items
+        : [],
+    currency,
+    total,
+    metadata: {
+      ...(existingSub?.metadata || {}),
+      razorpayOrderId: String(payment?.order_id || "").trim(),
+      razorpayPaymentId: String(payment?.id || "").trim(),
+      paymentMethod: String(payment?.method || "").trim(),
+      razorpayStatus: String(payment?.status || "").trim(),
+    },
+    createdAt: payment?.created_at ? new Date(Number(payment.created_at) * 1000) : undefined,
+  };
+}
+
+async function syncSubscriptionsFromRazorpay(count = 100) {
+  if (!razorpayClient) return;
+
+  const page = await razorpayClient.payments.all({
+    count: Math.max(1, Math.min(100, Number.isFinite(count) ? count : 100)),
+  });
+  const payments = Array.isArray(page?.items) ? page.items : [];
+
+  for (const payment of payments) {
+    if (!payment || payment.status !== "captured") continue;
+
+    const paymentId = String(payment.id || "").trim();
+    if (!paymentId) continue;
+
+    const existingSub = await Subscription.findOne({
+      "metadata.razorpayPaymentId": paymentId,
+    }).lean();
+
+    let order = null;
+    const orderId = String(payment.order_id || "").trim();
+    if (orderId) {
+      try {
+        order = await razorpayClient.orders.fetch(orderId);
+      } catch (_) {
+        order = null;
+      }
+    }
+
+    const payload = buildSubscriptionPayloadFromRazorpay(payment, order, existingSub);
+    const update = {
+      userName: payload.userName,
+      email: payload.email,
+      source: payload.source,
+      planName: payload.planName,
+      planType: payload.planType,
+      notes: payload.notes,
+      deliveryAddress: payload.deliveryAddress,
+      items: payload.items,
+      currency: payload.currency,
+      total: payload.total,
+      metadata: payload.metadata,
+    };
+
+    if (existingSub?._id) {
+      await Subscription.findByIdAndUpdate(existingSub._id, {
+        $set: update,
+      });
+    } else {
+      await Subscription.create({
+        ...update,
+        status: "active",
+        createdAt: payload.createdAt,
+        updatedAt: payload.createdAt,
+      });
+    }
   }
 }
 
@@ -1344,6 +1505,12 @@ app.delete(
 // ----- Admin subscriptions overview (for dashboard) -----
 app.get("/api/admin/subscriptions", adminAuthMiddleware, async (req, res) => {
   try {
+    try {
+      await syncSubscriptionsFromRazorpay(100);
+    } catch (syncError) {
+      console.error("Razorpay subscription sync error:", syncError);
+    }
+
     const status = (req.query.status || "").trim();
     const filter = status ? { status } : {};
     const subs = await Subscription.find(filter).sort({ createdAt: -1 }).lean();
@@ -1355,9 +1522,15 @@ app.get("/api/admin/subscriptions", adminAuthMiddleware, async (req, res) => {
         source: s.source,
         planName: s.planName,
         planType: s.planType,
+        notes: s.notes,
+        deliveryAddress: s.deliveryAddress || {},
         total: s.total,
         currency: s.currency,
         status: s.status,
+        paymentStatus:
+          String(s?.metadata?.razorpayStatus || "").trim() ||
+          (String(s.source || "").trim() === "razorpay" ? "paid" : ""),
+        paymentMethod: String(s?.metadata?.paymentMethod || "").trim(),
         deliveryStatus: s.deliveryStatus,
         createdAt: s.createdAt,
         deliveryExpectedAt: s.deliveryExpectedAt,
@@ -1393,9 +1566,15 @@ app.patch("/api/admin/subscriptions/:id", adminAuthMiddleware, async (req, res) 
       source: sub.source,
       planName: sub.planName,
       planType: sub.planType,
+      notes: sub.notes,
+      deliveryAddress: sub.deliveryAddress || {},
       total: sub.total,
       currency: sub.currency,
       status: sub.status,
+      paymentStatus:
+        String(sub?.metadata?.razorpayStatus || "").trim() ||
+        (String(sub.source || "").trim() === "razorpay" ? "paid" : ""),
+      paymentMethod: String(sub?.metadata?.paymentMethod || "").trim(),
       deliveryStatus: sub.deliveryStatus,
       createdAt: sub.createdAt,
       deliveryExpectedAt: sub.deliveryExpectedAt,
@@ -1405,141 +1584,6 @@ app.patch("/api/admin/subscriptions/:id", adminAuthMiddleware, async (req, res) 
     res.status(500).json({ error: e.message || "Failed to update subscription" });
   }
 });
-
-/**
- * Backfill old captured Razorpay payments into Subscription records.
- * Safe to run multiple times: skips entries already linked by payment id.
- */
-app.post(
-  "/api/admin/subscriptions/backfill-razorpay",
-  adminAuthMiddleware,
-  requireAdminRole("admin"),
-  async (req, res) => {
-    try {
-      if (!razorpayClient) {
-        return res.status(500).json({ error: "Razorpay is not configured (missing env vars)" });
-      }
-
-      const rawCount = Number(req.body?.count ?? req.query?.count ?? 100);
-      const rawSkip = Number(req.body?.skip ?? req.query?.skip ?? 0);
-      // Razorpay payments.list supports up to 100 records per call.
-      const count = Math.max(1, Math.min(100, Number.isFinite(rawCount) ? rawCount : 100));
-      const skip = Math.max(0, Number.isFinite(rawSkip) ? rawSkip : 0);
-      let page;
-      try {
-        page = await razorpayClient.payments.all({ count, skip });
-      } catch (listError) {
-        const detail =
-          listError?.error?.description ||
-          listError?.description ||
-          listError?.message ||
-          "Failed to fetch payment list from Razorpay";
-        return res.status(502).json({ error: detail });
-      }
-      const payments = Array.isArray(page?.items) ? page.items : [];
-
-      let created = 0;
-      let skipped = 0;
-      let failed = 0;
-
-      for (const payment of payments) {
-        try {
-          if (!payment || payment.status !== "captured") {
-            skipped += 1;
-            continue;
-          }
-
-          const paymentId = String(payment.id || "").trim();
-          if (!paymentId) {
-            skipped += 1;
-            continue;
-          }
-
-          const exists = await Subscription.findOne({ "metadata.razorpayPaymentId": paymentId }).lean();
-          if (exists) {
-            skipped += 1;
-            continue;
-          }
-
-          const orderId = String(payment.order_id || "").trim();
-          let orderNotes = {};
-          let orderReceipt = "";
-          if (orderId) {
-            try {
-              const order = await razorpayClient.orders.fetch(orderId);
-              orderNotes = typeof order?.notes === "object" && order.notes ? order.notes : {};
-              orderReceipt = String(order?.receipt || "").trim();
-            } catch (_) {
-              // Keep backfill resilient; we can still create from payment payload.
-            }
-          }
-
-          const mergedNotes = {
-            ...(typeof payment.notes === "object" && payment.notes ? payment.notes : {}),
-            ...(typeof orderNotes === "object" && orderNotes ? orderNotes : {}),
-          };
-
-          const itemsText = String(mergedNotes.items || mergedNotes.item || "").trim();
-          const planName = String(
-            mergedNotes.planName ||
-              mergedNotes.plan ||
-              itemsText ||
-              orderReceipt ||
-              `Razorpay order ${orderId || paymentId}`,
-          ).trim();
-          const userName = String(mergedNotes.customerName || mergedNotes.name || "").trim();
-          const email = String(
-            mergedNotes.customerEmail || payment.email || mergedNotes.email || "",
-          ).trim().toLowerCase();
-          const total = Math.max(0, Number(payment.amount || 0) / 100);
-          const currency = String(payment.currency || "INR").trim() || "INR";
-          const contact = String(payment.contact || "").trim();
-          const createdAtIso = payment.created_at
-            ? new Date(Number(payment.created_at) * 1000).toISOString()
-            : "";
-
-          await Subscription.create({
-            userName,
-            email,
-            source: "razorpay-backfill",
-            planName: planName || "Razorpay payment",
-            planType: "Backfilled payment",
-            notes: [
-              itemsText ? `Items: ${itemsText}` : "",
-              contact ? `Mobile: ${contact}` : "",
-              createdAtIso ? `Paid at: ${createdAtIso}` : "",
-            ]
-              .filter(Boolean)
-              .join(" | "),
-            items: [
-              {
-                name: planName || "Razorpay payment",
-                quantity: 1,
-                price: total,
-              },
-            ],
-            currency,
-            total,
-            status: "active",
-            metadata: {
-              razorpayOrderId: orderId,
-              razorpayPaymentId: paymentId,
-              backfilled: true,
-              paymentMethod: String(payment.method || "").trim(),
-            },
-          });
-          created += 1;
-        } catch (_) {
-          failed += 1;
-        }
-      }
-
-      res.json({ ok: true, scanned: payments.length, created, skipped, failed });
-    } catch (e) {
-      res.status(500).json({ error: e.message || "Failed to backfill Razorpay payments" });
-    }
-  },
-);
 
 // ----- Admin backup (MongoDB + Cloudinary URL list; works for Atlas and self-hosted) -----
 function collectCloudinaryUrls(posts) {

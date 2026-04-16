@@ -8,6 +8,14 @@ const subscriptionSchema = new mongoose.Schema(
     planName: { type: String, trim: true, required: true },
     planType: { type: String, trim: true, default: "" }, // e.g. Pre Primary Pack, Classroom Pack
     notes: { type: String, trim: true, default: "" },
+    deliveryAddress: {
+      address: { type: String, trim: true, default: "" },
+      pin: { type: String, trim: true, default: "" },
+      mobile: { type: String, trim: true, default: "" },
+      landline: { type: String, trim: true, default: "" },
+      website: { type: String, trim: true, default: "" },
+      institution: { type: String, trim: true, default: "" },
+    },
     items: [
       {
         name: { type: String, required: true, trim: true },

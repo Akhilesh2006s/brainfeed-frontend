@@ -17,9 +17,20 @@ type Subscription = {
   source?: string;
   planName: string;
   planType?: string;
+  notes?: string;
+  deliveryAddress?: {
+    address?: string;
+    pin?: string;
+    mobile?: string;
+    landline?: string;
+    website?: string;
+    institution?: string;
+  };
   total: number;
   currency: string;
   status: SubscriptionStatus;
+  paymentStatus?: string;
+  paymentMethod?: string;
   deliveryStatus?: string;
   createdAt?: string;
   deliveryExpectedAt?: string | null;
@@ -64,12 +75,63 @@ const formatCurrency = (amount: number, currency = "INR") =>
     maximumFractionDigits: 0,
   });
 
+const formatPaymentStatus = (value?: string) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "—";
+  const lowered = normalized.toLowerCase();
+  if (lowered === "captured") return "Paid";
+  if (lowered === "paid") return "Paid";
+  if (lowered === "created") return "Created";
+  if (lowered === "attempted") return "Attempted";
+  if (lowered === "failed") return "Failed";
+  if (lowered === "refunded") return "Refunded";
+  if (lowered === "authorized") return "Authorized";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const formatSubscriberNotes = (value?: string) => {
+  const parts = String(value || "")
+    .split("|")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part) => !/^(Items:|Mobile:|Method:)/i.test(part));
+
+  if (parts.length === 0) return "";
+
+  return Array.from(new Set(parts)).join(" | ");
+};
+
+const formatDeliveryAddress = (value?: Subscription["deliveryAddress"], fallbackNotes?: string) => {
+  const parts = [
+    String(value?.address || "").trim(),
+    String(value?.pin || "").trim() ? `PIN: ${String(value?.pin || "").trim()}` : "",
+    String(value?.landline || "").trim()
+      ? `Landline: ${String(value?.landline || "").trim()}`
+      : "",
+    String(value?.website || "").trim() ? `Website: ${String(value?.website || "").trim()}` : "",
+    String(value?.institution || "").trim()
+      ? `Institution: ${String(value?.institution || "").trim()}`
+      : "",
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return Array.from(new Set(parts)).join(" | ");
+  }
+
+  const noteParts = String(fallbackNotes || "")
+    .split("|")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part) => !/^(Items:|Mobile:|Method:)/i.test(part));
+
+  return Array.from(new Set(noteParts)).join(" | ");
+};
+
 const AdminSubscriptionList = () => {
   const { token } = useAdmin();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [syncingHistory, setSyncingHistory] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | "all">("all");
 
   const load = () => {
@@ -88,9 +150,13 @@ const AdminSubscriptionList = () => {
           source: s.source,
           planName: s.planName,
           planType: s.planType,
+          notes: s.notes,
+          deliveryAddress: s.deliveryAddress,
           total: s.total ?? 0,
           currency: s.currency || "INR",
           status: (s.status as SubscriptionStatus) || "pending",
+          paymentStatus: s.paymentStatus,
+          paymentMethod: s.paymentMethod,
           deliveryStatus: s.deliveryStatus,
           createdAt: s.createdAt,
           deliveryExpectedAt: s.deliveryExpectedAt,
@@ -146,55 +212,16 @@ const AdminSubscriptionList = () => {
     }
   };
 
-  const syncRazorpayHistory = async () => {
-    if (!token) return;
-    setSyncingHistory(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/subscriptions/backfill-razorpay`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ count: 100, skip: 0 }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(j?.error || "Failed to sync payment history.");
-        return;
-      }
-      toast.success(
-        `Sync complete. Added ${j?.created ?? 0}, skipped ${j?.skipped ?? 0}, failed ${j?.failed ?? 0}.`,
-      );
-      load();
-    } catch {
-      toast.error("Failed to sync payment history.");
-    } finally {
-      setSyncingHistory(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl text-foreground mb-1">Subscriptions overview</h1>
           <p className="text-sm text-muted-foreground">
-            See all Brainfeed subscription orders from the website and quickly scan their delivery status.
+            See all Brainfeed subscription orders and review Razorpay-backed payment details with delivery status.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 text-xs"
-            onClick={syncRazorpayHistory}
-            disabled={syncingHistory}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${syncingHistory ? "animate-spin" : ""}`} />
-            {syncingHistory ? "Syncing…" : "Sync old payments"}
-          </Button>
           <Select
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v as SubscriptionStatus | "all")}
@@ -282,6 +309,7 @@ const AdminSubscriptionList = () => {
                 <tr>
                   <th className="text-left p-3 font-medium">Subscriber</th>
                   <th className="text-left p-3 font-medium">Plan</th>
+                  <th className="text-left p-3 font-medium">Payment</th>
                   <th className="text-left p-3 font-medium">Created</th>
                   <th className="text-left p-3 font-medium">Delivery</th>
                   <th className="text-left p-3 font-medium">Total</th>
@@ -318,6 +346,16 @@ const AdminSubscriptionList = () => {
                           </div>
                         )}
                       </td>
+                      <td className="p-3 align-top">
+                        <div className="text-xs font-medium text-foreground">
+                          {formatPaymentStatus(s.paymentStatus)}
+                        </div>
+                        {s.paymentMethod && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            Method: {s.paymentMethod}
+                          </div>
+                        )}
+                      </td>
                       <td className="p-3 align-top text-xs text-muted-foreground">
                         {s.createdAt
                           ? new Date(s.createdAt).toLocaleDateString("en-IN", {
@@ -328,7 +366,9 @@ const AdminSubscriptionList = () => {
                           : "—"}
                       </td>
                       <td className="p-3 align-top text-xs text-muted-foreground max-w-[200px]">
-                        {s.deliveryStatus
+                        {formatDeliveryAddress(s.deliveryAddress, s.notes)
+                          ? formatDeliveryAddress(s.deliveryAddress, s.notes)
+                          : s.deliveryStatus
                           ? s.deliveryStatus
                           : s.deliveryExpectedAt
                           ? `Expected: ${new Date(s.deliveryExpectedAt).toLocaleDateString(
