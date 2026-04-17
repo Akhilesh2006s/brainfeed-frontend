@@ -309,6 +309,50 @@ async function verifyRazorpayPayment(req, res) {
   }
 }
 
+function extractDeliveryAddressFromLegacyNotes(notesValue) {
+  const parts = String(notesValue || "")
+    .split("|")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  const result = {
+    address: "",
+    pin: "",
+    mobile: "",
+    landline: "",
+    website: "",
+    institution: "",
+  };
+
+  for (const part of parts) {
+    if (!result.pin && /^PIN:/i.test(part)) {
+      result.pin = part.replace(/^PIN:\s*/i, "").trim();
+      continue;
+    }
+    if (!result.mobile && /^Mobile:/i.test(part)) {
+      result.mobile = part.replace(/^Mobile:\s*/i, "").trim();
+      continue;
+    }
+    if (!result.landline && /^Landline:/i.test(part)) {
+      result.landline = part.replace(/^Landline:\s*/i, "").trim();
+      continue;
+    }
+    if (!result.website && /^Website:/i.test(part)) {
+      result.website = part.replace(/^Website:\s*/i, "").trim();
+      continue;
+    }
+    if (!result.institution && /^Institution:/i.test(part)) {
+      result.institution = part.replace(/^Institution:\s*/i, "").trim();
+      continue;
+    }
+    if (!result.address && !/^(Items:|Method:)/i.test(part)) {
+      result.address = part;
+    }
+  }
+
+  return result;
+}
+
 function buildSubscriptionPayloadFromRazorpay(payment, order, existingSub) {
   const orderNotes = typeof order?.notes === "object" && order.notes ? order.notes : {};
   const paymentNotes = typeof payment?.notes === "object" && payment.notes ? payment.notes : {};
@@ -325,23 +369,32 @@ function buildSubscriptionPayloadFromRazorpay(payment, order, existingSub) {
     .trim()
     .toLowerCase();
   const mobile = String(mergedNotes.customerMobile || payment?.contact || "").trim();
+  const legacyAddress = extractDeliveryAddressFromLegacyNotes(existingSub?.notes);
   const deliveryAddress = {
     address:
       String(mergedNotes.address || "").trim() ||
-      String(existingSub?.deliveryAddress?.address || "").trim(),
+      String(existingSub?.deliveryAddress?.address || "").trim() ||
+      legacyAddress.address,
     pin:
       String(mergedNotes.pin || "").trim() ||
-      String(existingSub?.deliveryAddress?.pin || "").trim(),
-    mobile: mobile || String(existingSub?.deliveryAddress?.mobile || "").trim(),
+      String(existingSub?.deliveryAddress?.pin || "").trim() ||
+      legacyAddress.pin,
+    mobile:
+      mobile ||
+      String(existingSub?.deliveryAddress?.mobile || "").trim() ||
+      legacyAddress.mobile,
     landline:
       String(mergedNotes.landline || "").trim() ||
-      String(existingSub?.deliveryAddress?.landline || "").trim(),
+      String(existingSub?.deliveryAddress?.landline || "").trim() ||
+      legacyAddress.landline,
     website:
       String(mergedNotes.website || "").trim() ||
-      String(existingSub?.deliveryAddress?.website || "").trim(),
+      String(existingSub?.deliveryAddress?.website || "").trim() ||
+      legacyAddress.website,
     institution:
       String(mergedNotes.institution || "").trim() ||
-      String(existingSub?.deliveryAddress?.institution || "").trim(),
+      String(existingSub?.deliveryAddress?.institution || "").trim() ||
+      legacyAddress.institution,
   };
   const addressParts = [
     deliveryAddress.address,
@@ -404,6 +457,13 @@ function buildSubscriptionPayloadFromRazorpay(payment, order, existingSub) {
   };
 }
 
+function mapRazorpayPaymentStatusToSubscriptionStatus(paymentStatus) {
+  const s = String(paymentStatus || "").trim().toLowerCase();
+  if (s === "captured") return "active";
+  if (s === "failed" || s === "refunded") return "cancelled";
+  return "pending";
+}
+
 async function syncSubscriptionsFromRazorpay(count = 100) {
   if (!razorpayClient) return;
 
@@ -413,7 +473,7 @@ async function syncSubscriptionsFromRazorpay(count = 100) {
   const payments = Array.isArray(page?.items) ? page.items : [];
 
   for (const payment of payments) {
-    if (!payment || payment.status !== "captured") continue;
+    if (!payment) continue;
 
     const paymentId = String(payment.id || "").trim();
     if (!paymentId) continue;
@@ -446,15 +506,20 @@ async function syncSubscriptionsFromRazorpay(count = 100) {
       total: payload.total,
       metadata: payload.metadata,
     };
+    const subscriptionStatus = mapRazorpayPaymentStatusToSubscriptionStatus(payment?.status);
 
     if (existingSub?._id) {
+      const statusUpdate =
+        String(existingSub.source || "").trim() === "razorpay"
+          ? { status: subscriptionStatus }
+          : {};
       await Subscription.findByIdAndUpdate(existingSub._id, {
-        $set: update,
+        $set: { ...update, ...statusUpdate },
       });
     } else {
       await Subscription.create({
         ...update,
-        status: "active",
+        status: subscriptionStatus,
         createdAt: payload.createdAt,
         updatedAt: payload.createdAt,
       });

@@ -101,30 +101,77 @@ const formatSubscriberNotes = (value?: string) => {
   return Array.from(new Set(parts)).join(" | ");
 };
 
-const formatDeliveryAddress = (value?: Subscription["deliveryAddress"], fallbackNotes?: string) => {
-  const parts = [
-    String(value?.address || "").trim(),
-    String(value?.pin || "").trim() ? `PIN: ${String(value?.pin || "").trim()}` : "",
-    String(value?.landline || "").trim()
-      ? `Landline: ${String(value?.landline || "").trim()}`
-      : "",
-    String(value?.website || "").trim() ? `Website: ${String(value?.website || "").trim()}` : "",
-    String(value?.institution || "").trim()
-      ? `Institution: ${String(value?.institution || "").trim()}`
-      : "",
-  ].filter(Boolean);
-
-  if (parts.length > 0) {
-    return Array.from(new Set(parts)).join(" | ");
-  }
-
-  const noteParts = String(fallbackNotes || "")
+const parseLegacyDeliveryDetails = (fallbackNotes?: string) => {
+  const parts = String(fallbackNotes || "")
     .split("|")
     .map((part) => String(part || "").trim())
-    .filter(Boolean)
-    .filter((part) => !/^(Items:|Mobile:|Method:)/i.test(part));
+    .filter(Boolean);
 
-  return Array.from(new Set(noteParts)).join(" | ");
+  let address = "";
+  let pin = "";
+  let mobile = "";
+  let landline = "";
+  let website = "";
+  let institution = "";
+
+  for (const part of parts) {
+    if (!pin && /^PIN:/i.test(part)) {
+      pin = part.replace(/^PIN:\s*/i, "").trim();
+      continue;
+    }
+    if (!mobile && /^Mobile:/i.test(part)) {
+      mobile = part.replace(/^Mobile:\s*/i, "").trim();
+      continue;
+    }
+    if (!landline && /^Landline:/i.test(part)) {
+      landline = part.replace(/^Landline:\s*/i, "").trim();
+      continue;
+    }
+    if (!website && /^Website:/i.test(part)) {
+      website = part.replace(/^Website:\s*/i, "").trim();
+      continue;
+    }
+    if (!institution && /^Institution:/i.test(part)) {
+      institution = part.replace(/^Institution:\s*/i, "").trim();
+      continue;
+    }
+    if (!address && !/^(Items:|Method:)/i.test(part)) {
+      address = part;
+    }
+  }
+
+  return { address, pin, mobile, landline, website, institution };
+};
+
+const getDeliveryDetails = (value?: Subscription["deliveryAddress"], fallbackNotes?: string) => {
+  const legacy = parseLegacyDeliveryDetails(fallbackNotes);
+  return {
+    address: String(value?.address || "").trim() || legacy.address,
+    pin: String(value?.pin || "").trim() || legacy.pin,
+    mobile: String(value?.mobile || "").trim() || legacy.mobile,
+    landline: String(value?.landline || "").trim() || legacy.landline,
+    website: String(value?.website || "").trim() || legacy.website,
+    institution: String(value?.institution || "").trim() || legacy.institution,
+  };
+};
+
+const formatDeliveryMobile = (value?: Subscription["deliveryAddress"], fallbackNotes?: string) => {
+  const fromAddress = getDeliveryDetails(value, fallbackNotes).mobile;
+  if (fromAddress) return fromAddress;
+  return "";
+};
+
+const getDeliveryText = (sub: Subscription) => {
+  const details = getDeliveryDetails(sub.deliveryAddress, sub.notes);
+  if (details.address) return details.address;
+  if (sub.deliveryStatus) return sub.deliveryStatus;
+  if (sub.deliveryExpectedAt) {
+    return `Expected: ${new Date(sub.deliveryExpectedAt).toLocaleDateString("en-IN")}`;
+  }
+  if (sub.deliveredAt) {
+    return `Delivered: ${new Date(sub.deliveredAt).toLocaleDateString("en-IN")}`;
+  }
+  return "Address not available";
 };
 
 const AdminSubscriptionList = () => {
@@ -312,6 +359,7 @@ const AdminSubscriptionList = () => {
                   <th className="text-left p-3 font-medium">Payment</th>
                   <th className="text-left p-3 font-medium">Created</th>
                   <th className="text-left p-3 font-medium">Delivery</th>
+                  <th className="text-left p-3 font-medium">Mobile</th>
                   <th className="text-left p-3 font-medium">Total</th>
                   <th className="text-left p-3 font-medium">Status</th>
                   <th className="text-right p-3 font-medium">Update</th>
@@ -365,18 +413,25 @@ const AdminSubscriptionList = () => {
                             })
                           : "—"}
                       </td>
-                      <td className="p-3 align-top text-xs text-muted-foreground max-w-[200px]">
-                        {formatDeliveryAddress(s.deliveryAddress, s.notes)
-                          ? formatDeliveryAddress(s.deliveryAddress, s.notes)
-                          : s.deliveryStatus
-                          ? s.deliveryStatus
-                          : s.deliveryExpectedAt
-                          ? `Expected: ${new Date(s.deliveryExpectedAt).toLocaleDateString(
-                              "en-IN"
-                            )}`
-                          : s.deliveredAt
-                          ? `Delivered: ${new Date(s.deliveredAt).toLocaleDateString("en-IN")}`
-                          : "—"}
+                      <td className="p-3 align-top text-xs text-muted-foreground max-w-[360px] min-w-[220px]">
+                        {(() => {
+                          const details = getDeliveryDetails(s.deliveryAddress, s.notes);
+                          if (details.address || details.pin || details.landline || details.website || details.institution) {
+                            return (
+                              <div className="space-y-0.5 whitespace-pre-wrap break-words">
+                                {details.address && <div className="text-foreground/90">{details.address}</div>}
+                                {details.pin && <div>PIN: {details.pin}</div>}
+                                {details.landline && <div>Landline: {details.landline}</div>}
+                                {details.website && <div>Website: {details.website}</div>}
+                                {details.institution && <div>Institution: {details.institution}</div>}
+                              </div>
+                            );
+                          }
+                          return getDeliveryText(s);
+                        })()}
+                      </td>
+                      <td className="p-3 align-top text-xs text-muted-foreground">
+                        {formatDeliveryMobile(s.deliveryAddress, s.notes) || "—"}
                       </td>
                       <td className="p-3 align-top text-sm text-foreground">
                         {s.total ? formatCurrency(s.total, s.currency) : "—"}

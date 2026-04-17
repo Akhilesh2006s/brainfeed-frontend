@@ -26,7 +26,7 @@ const TopBar = () => {
       initial={{ y: -40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="bg-primary text-primary-foreground text-xs"
+      className="hidden lg:block bg-primary text-primary-foreground text-xs"
     >
       <div className="container flex flex-col gap-1.5 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-2">
         {/* Partner links: wrap on very small screens so all stay visible; each as a pill button */}
