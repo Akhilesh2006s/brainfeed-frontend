@@ -19,9 +19,11 @@ const Cart = () => {
   const navigate = useNavigate();
 
   const hasItems = items.length > 0;
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const hasOnlyMagazines = hasItems && items.every((item) => isMagazineItem(item));
-  const shippingCharge = hasOnlyMagazines && totalQuantity === 1 ? 300 : 0;
+  const magazineQuantity = items.reduce(
+    (sum, item) => sum + (isMagazineItem(item) ? item.quantity : 0),
+    0,
+  );
+  const shippingCharge = magazineQuantity * 300;
   const total = subtotal + shippingCharge;
 
   return (
@@ -140,7 +142,7 @@ const Cart = () => {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Rs. 300 shipping is added only for Brainfeed Magazines when quantity is 1. Quantity 2 or more gets free shipping.
+                    Shipping is charged only for Brainfeed Magazines at Rs. 300 per quantity.
                   </p>
                   <Button
                     type="button"

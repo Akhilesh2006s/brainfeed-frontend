@@ -47,14 +47,13 @@ const Checkout = () => {
   const hasItems = items.length > 0;
   const [isPaying, setIsPaying] = useState(false);
   const orderLabel = useMemo(() => (items.length === 1 ? items[0].name : `Brainfeed order (${items.length} items)`), [items]);
-  const totalQuantity = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
-  const hasOnlyMagazines = useMemo(
-    () => hasItems && items.every((item) => isMagazineItem(item)),
-    [hasItems, items],
+  const magazineQuantity = useMemo(
+    () => items.reduce((sum, item) => sum + (isMagazineItem(item) ? item.quantity : 0), 0),
+    [items],
   );
   const shippingCharge = useMemo(
-    () => (hasOnlyMagazines && totalQuantity === 1 ? 300 : 0),
-    [hasOnlyMagazines, totalQuantity],
+    () => magazineQuantity * 300,
+    [magazineQuantity],
   );
   const totalAmount = subtotal + shippingCharge;
   const [paymentResult, setPaymentResult] = useState<{
@@ -453,7 +452,7 @@ const Checkout = () => {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Rs. 300 shipping is added only for Brainfeed Magazines when quantity is 1. Quantity 2 or more gets free shipping.
+                    Shipping is charged only for Brainfeed Magazines at Rs. 300 per quantity.
                   </p>
                   <Button
                     type="button"

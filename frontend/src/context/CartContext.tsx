@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 type CartItem = {
   id: string;
@@ -19,9 +19,31 @@ type CartContextValue = {
 };
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
+const CART_STORAGE_KEY = "brainfeed-cart-items";
+
+function loadInitialCartItems(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => ({
+        id: String(item?.id || "").trim(),
+        name: String(item?.name || "").trim(),
+        price: Number(item?.price) || 0,
+        quantity: Math.max(0, Number(item?.quantity) || 0),
+        category: item?.category,
+      }))
+      .filter((item) => item.id && item.name && item.price >= 0 && item.quantity > 0);
+  } catch {
+    return [];
+  }
+}
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(loadInitialCartItems);
 
   const addItem: CartContextValue["addItem"] = (item, quantity = 1) => {
     setItems((prev) => {
@@ -50,6 +72,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const clearCart: CartContextValue["clearCart"] = () => {
     setItems([]);
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [items]);
 
   const value = useMemo<CartContextValue>(() => {
     const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
