@@ -109,11 +109,11 @@ const formatCurrency = (amount: number, currency = "INR") =>
 
 const escapeHtml = (value: string) =>
   value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const formatPaymentStatus = (value?: string) => {
   const normalized = String(value || "").trim();
@@ -568,18 +568,43 @@ const AdminSubscriptionList = () => {
 
   const handlePrintInvoice = (sub: Subscription) => {
     const html = buildInvoiceHtml(sub);
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, "_blank", "noopener,noreferrer");
-    if (!w) {
-      toast.error("Unable to open invoice preview window.");
-      URL.revokeObjectURL(url);
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc || !iframe.contentWindow) {
+      document.body.removeChild(iframe);
+      toast.error("Unable to prepare print preview.");
       return;
     }
-    w.addEventListener("load", () => {
-      w.print();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    });
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const cleanup = () => {
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 500);
+    };
+
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      cleanup();
+    };
+    // Fallback for browsers that do not fire iframe.onload reliably after doc.write.
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      cleanup();
+    }, 150);
   };
 
   const handleDownloadInvoice = async (sub: Subscription) => {
