@@ -62,41 +62,79 @@ const Checkout = () => {
     description: string;
   } | null>(null);
 
-  const [details, setDetails] = useState({
-    name: "",
-    address: "",
-    pin: "",
-    mobile: "",
-    landline: "",
+  const [billingDetails, setBillingDetails] = useState({
+    contactName: "",
+    fullAddress: "",
+    city: "",
+    state: "",
+    pincode: "",
     email: "",
-    website: "",
-    institution: "",
+    contact: "",
+  });
+  const [shippingDetails, setShippingDetails] = useState({
+    contactName: "",
+    fullAddress: "",
+    city: "",
+    state: "",
+    pincode: "",
+    email: "",
+    contact: "",
   });
 
   function validateDetails() {
-    const requiredFields: Array<{ key: keyof typeof details; label: string }> = [
-      { key: "name", label: "Name" },
-      { key: "address", label: "Address" },
-      { key: "pin", label: "Pin" },
-      { key: "mobile", label: "Mobile No." },
-      { key: "email", label: "Email" },
+    const requiredBilling: Array<{ key: keyof typeof billingDetails; label: string }> = [
+      { key: "contactName", label: "Billing name" },
+      { key: "fullAddress", label: "Billing full address" },
+      { key: "city", label: "Billing city" },
+      { key: "state", label: "Billing state" },
+      { key: "pincode", label: "Billing pincode" },
+      { key: "email", label: "Billing email" },
+      { key: "contact", label: "Billing contact" },
+    ];
+    const requiredShipping: Array<{ key: keyof typeof shippingDetails; label: string }> = [
+      { key: "contactName", label: "Shipping name" },
+      { key: "fullAddress", label: "Shipping full address" },
+      { key: "city", label: "Shipping city" },
+      { key: "state", label: "Shipping state" },
+      { key: "pincode", label: "Shipping pincode" },
+      { key: "email", label: "Shipping email" },
+      { key: "contact", label: "Shipping contact" },
     ];
 
-    for (const f of requiredFields) {
-      const value = String(details[f.key] || "").trim();
+    for (const f of requiredBilling) {
+      const value = String(billingDetails[f.key] || "").trim();
       if (!value) {
         toast.error(`Please enter ${f.label}.`);
-        const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-checkout-field="${f.key}"]`);
+        const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+          `[data-checkout-field="billing-${String(f.key)}"]`,
+        );
         el?.focus();
         return false;
       }
     }
 
-    const email = details.email.trim();
-    // Simple email guard (browser validation isn't triggered because the button is type="button")
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Please enter a valid email.");
-      document.querySelector<HTMLInputElement>(`[data-checkout-field="email"]`)?.focus();
+    for (const f of requiredShipping) {
+      const value = String(shippingDetails[f.key] || "").trim();
+      if (!value) {
+        toast.error(`Please enter ${f.label}.`);
+        const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+          `[data-checkout-field="shipping-${String(f.key)}"]`,
+        );
+        el?.focus();
+        return false;
+      }
+    }
+
+    const billingEmail = billingDetails.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail)) {
+      toast.error("Please enter a valid billing email.");
+      document.querySelector<HTMLInputElement>(`[data-checkout-field="billing-email"]`)?.focus();
+      return false;
+    }
+    const shippingEmail = shippingDetails.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingEmail)) {
+      toast.error("Please enter a valid shipping email.");
+      document.querySelector<HTMLInputElement>(`[data-checkout-field="shipping-email"]`)?.focus();
       return false;
     }
 
@@ -125,14 +163,13 @@ const Checkout = () => {
           currency: "INR",
           receipt: `bf_${Date.now()}`,
           notes: {
-            customerName: details.name.trim(),
-            customerEmail: details.email.trim(),
-            customerMobile: details.mobile.trim(),
-            address: details.address.trim(),
-            pin: details.pin.trim(),
-            landline: details.landline.trim(),
-            website: details.website.trim(),
-            institution: details.institution.trim(),
+            customerName: billingDetails.contactName.trim(),
+            customerEmail: billingDetails.email.trim(),
+            customerMobile: billingDetails.contact.trim(),
+            address: shippingDetails.fullAddress.trim(),
+            pin: shippingDetails.pincode.trim(),
+            city: shippingDetails.city.trim(),
+            state: shippingDetails.state.trim(),
             items: items.map((i) => `${i.name}×${i.quantity}`).join(", "),
           },
         }),
@@ -164,15 +201,30 @@ const Checkout = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...response,
+              billingDetails: {
+                contactName: billingDetails.contactName.trim(),
+                fullAddress: billingDetails.fullAddress.trim(),
+                city: billingDetails.city.trim(),
+                state: billingDetails.state.trim(),
+                pincode: billingDetails.pincode.trim(),
+                email: billingDetails.email.trim(),
+                contact: billingDetails.contact.trim(),
+              },
+              shippingDetails: {
+                contactName: shippingDetails.contactName.trim(),
+                fullAddress: shippingDetails.fullAddress.trim(),
+                city: shippingDetails.city.trim(),
+                state: shippingDetails.state.trim(),
+                pincode: shippingDetails.pincode.trim(),
+                email: shippingDetails.email.trim(),
+                contact: shippingDetails.contact.trim(),
+              },
               details: {
-                name: details.name.trim(),
-                address: details.address.trim(),
-                pin: details.pin.trim(),
-                mobile: details.mobile.trim(),
-                landline: details.landline.trim(),
-                email: details.email.trim(),
-                website: details.website.trim(),
-                institution: details.institution.trim(),
+                name: shippingDetails.contactName.trim(),
+                address: shippingDetails.fullAddress.trim(),
+                pin: shippingDetails.pincode.trim(),
+                mobile: shippingDetails.contact.trim(),
+                email: shippingDetails.email.trim(),
               },
               items: items.map((item) => ({
                 id: item.id,
@@ -180,6 +232,7 @@ const Checkout = () => {
                 quantity: item.quantity,
                 price: item.price,
                 category: item.category,
+                imageUrl: item.imageUrl,
               })),
               source: "website",
               subtotal,
@@ -208,9 +261,9 @@ const Checkout = () => {
           toast.success("Payment successful!");
         },
         prefill: {
-          name: details.name.trim(),
-          email: details.email.trim(),
-          contact: details.mobile.trim(),
+          name: billingDetails.contactName.trim(),
+          email: billingDetails.email.trim(),
+          contact: billingDetails.contact.trim(),
         },
         modal: {
           ondismiss: () => {
@@ -340,75 +393,136 @@ const Checkout = () => {
             <div>
               <ScrollReveal direction="up" once>
                 <div className="rounded-xl border border-border/60 bg-card/60 p-6 md:p-7 space-y-3">
-                  <h2 className="font-serif text-lg md:text-xl text-foreground mb-1">Your details</h2>
+                  <h2 className="font-serif text-lg md:text-xl text-foreground mb-1">Billing details</h2>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Please fill in the required fields so our team can process your subscription and delivery.
+                    All billing fields are required.
                   </p>
                   <div className="space-y-3">
                     <Input
-                      data-checkout-field="name"
-                      placeholder="Name *"
+                      data-checkout-field="billing-contactName"
+                      placeholder="Billing Name *"
                       required
                       className="h-9 text-sm"
-                      value={details.name}
-                      onChange={(e) => setDetails((d) => ({ ...d, name: e.target.value }))}
-                    />
-                    <Textarea
-                      data-checkout-field="address"
-                      placeholder="Address *"
-                      required
-                      className="min-h-[80px] text-sm resize-none"
-                      value={details.address}
-                      onChange={(e) => setDetails((d) => ({ ...d, address: e.target.value }))}
-                    />
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Input
-                        data-checkout-field="pin"
-                        placeholder="Pin *"
-                        required
-                        className="h-9 text-sm sm:w-1/3"
-                        value={details.pin}
-                        onChange={(e) => setDetails((d) => ({ ...d, pin: e.target.value }))}
-                      />
-                      <Input
-                        data-checkout-field="mobile"
-                        placeholder="Mobile No. *"
-                        required
-                        className="h-9 text-sm flex-1"
-                        value={details.mobile}
-                        onChange={(e) => setDetails((d) => ({ ...d, mobile: e.target.value }))}
-                      />
-                    </div>
-                    <Input
-                      data-checkout-field="landline"
-                      placeholder="Land Line No. (optional)"
-                      className="h-9 text-sm"
-                      value={details.landline}
-                      onChange={(e) => setDetails((d) => ({ ...d, landline: e.target.value }))}
+                      value={billingDetails.contactName}
+                      onChange={(e) => setBillingDetails((d) => ({ ...d, contactName: e.target.value }))}
                     />
                     <Input
-                      data-checkout-field="email"
-                      placeholder="Email *"
+                      data-checkout-field="billing-email"
+                      placeholder="Billing Email *"
                       type="email"
                       required
                       className="h-9 text-sm"
-                      value={details.email}
-                      onChange={(e) => setDetails((d) => ({ ...d, email: e.target.value }))}
+                      value={billingDetails.email}
+                      onChange={(e) => setBillingDetails((d) => ({ ...d, email: e.target.value }))}
                     />
                     <Input
-                      data-checkout-field="website"
-                      placeholder="Website (optional)"
+                      data-checkout-field="billing-contact"
+                      placeholder="Billing Contact *"
+                      required
                       className="h-9 text-sm"
-                      value={details.website}
-                      onChange={(e) => setDetails((d) => ({ ...d, website: e.target.value }))}
+                      value={billingDetails.contact}
+                      onChange={(e) => setBillingDetails((d) => ({ ...d, contact: e.target.value }))}
+                    />
+                    <Textarea
+                      data-checkout-field="billing-fullAddress"
+                      placeholder="Billing Full Address *"
+                      required
+                      className="min-h-[80px] text-sm resize-none"
+                      value={billingDetails.fullAddress}
+                      onChange={(e) => setBillingDetails((d) => ({ ...d, fullAddress: e.target.value }))}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Input
+                        data-checkout-field="billing-city"
+                        placeholder="Billing City *"
+                        required
+                        className="h-9 text-sm"
+                        value={billingDetails.city}
+                        onChange={(e) => setBillingDetails((d) => ({ ...d, city: e.target.value }))}
+                      />
+                      <Input
+                        data-checkout-field="billing-state"
+                        placeholder="Billing State *"
+                        required
+                        className="h-9 text-sm"
+                        value={billingDetails.state}
+                        onChange={(e) => setBillingDetails((d) => ({ ...d, state: e.target.value }))}
+                      />
+                      <Input
+                        data-checkout-field="billing-pincode"
+                        placeholder="Billing Pincode *"
+                        required
+                        className="h-9 text-sm"
+                        value={billingDetails.pincode}
+                        onChange={(e) => setBillingDetails((d) => ({ ...d, pincode: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <h2 className="font-serif text-lg md:text-xl text-foreground mb-1 pt-2">Shipping details</h2>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Shipping email, contact, full address, city, state and pincode are mandatory.
+                  </p>
+                  <div className="space-y-3">
+                    <Input
+                      data-checkout-field="shipping-contactName"
+                      placeholder="Shipping Name *"
+                      required
+                      className="h-9 text-sm"
+                      value={shippingDetails.contactName}
+                      onChange={(e) => setShippingDetails((d) => ({ ...d, contactName: e.target.value }))}
                     />
                     <Input
-                      data-checkout-field="institution"
-                      placeholder="Name of the Institution (optional)"
+                      data-checkout-field="shipping-email"
+                      placeholder="Shipping Email *"
+                      type="email"
+                      required
                       className="h-9 text-sm"
-                      value={details.institution}
-                      onChange={(e) => setDetails((d) => ({ ...d, institution: e.target.value }))}
+                      value={shippingDetails.email}
+                      onChange={(e) => setShippingDetails((d) => ({ ...d, email: e.target.value }))}
                     />
+                    <Input
+                      data-checkout-field="shipping-contact"
+                      placeholder="Shipping Contact *"
+                      required
+                      className="h-9 text-sm"
+                      value={shippingDetails.contact}
+                      onChange={(e) => setShippingDetails((d) => ({ ...d, contact: e.target.value }))}
+                    />
+                    <Textarea
+                      data-checkout-field="shipping-fullAddress"
+                      placeholder="Shipping Full Address *"
+                      required
+                      className="min-h-[80px] text-sm resize-none"
+                      value={shippingDetails.fullAddress}
+                      onChange={(e) => setShippingDetails((d) => ({ ...d, fullAddress: e.target.value }))}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Input
+                        data-checkout-field="shipping-city"
+                        placeholder="Shipping City *"
+                        required
+                        className="h-9 text-sm"
+                        value={shippingDetails.city}
+                        onChange={(e) => setShippingDetails((d) => ({ ...d, city: e.target.value }))}
+                      />
+                      <Input
+                        data-checkout-field="shipping-state"
+                        placeholder="Shipping State *"
+                        required
+                        className="h-9 text-sm"
+                        value={shippingDetails.state}
+                        onChange={(e) => setShippingDetails((d) => ({ ...d, state: e.target.value }))}
+                      />
+                      <Input
+                        data-checkout-field="shipping-pincode"
+                        placeholder="Shipping Pincode *"
+                        required
+                        className="h-9 text-sm"
+                        value={shippingDetails.pincode}
+                        onChange={(e) => setShippingDetails((d) => ({ ...d, pincode: e.target.value }))}
+                      />
+                    </div>
                   </div>
                 </div>
               </ScrollReveal>

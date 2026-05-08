@@ -314,6 +314,7 @@ const Subscribe = () => {
                             name: `${pack.name} (Pre Primary Pack)`,
                             price: pack.price,
                             category: "pre-primary",
+                            imageUrl: pack.imageUrl || "",
                           })
                         }
                       >
@@ -391,6 +392,7 @@ const Subscribe = () => {
                             name: `${pack.name} (Library Pack)`,
                             price: pack.price,
                             category: "library",
+                            imageUrl: pack.imageUrl || "",
                           })
                         }
                       >
@@ -468,6 +470,7 @@ const Subscribe = () => {
                             name: `${pack.name} (Classroom Pack)`,
                             price: pack.price,
                             category: "classroom",
+                            imageUrl: pack.imageUrl || "",
                           })
                         }
                       >
@@ -545,6 +548,7 @@ const Subscribe = () => {
                             name: mag.name,
                             price: mag.price,
                             category: "magazine",
+                            imageUrl: mag.imageUrl || "",
                           })
                         }
                       >

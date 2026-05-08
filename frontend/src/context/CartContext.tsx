@@ -6,6 +6,7 @@ type CartItem = {
   price: number;
   quantity: number;
   category?: "pre-primary" | "library" | "classroom" | "magazine";
+  imageUrl?: string;
 };
 
 type CartContextValue = {
@@ -35,6 +36,7 @@ function loadInitialCartItems(): CartItem[] {
         price: Number(item?.price) || 0,
         quantity: Math.max(0, Number(item?.quantity) || 0),
         category: item?.category,
+        imageUrl: String(item?.imageUrl || "").trim(),
       }))
       .filter((item) => item.id && item.name && item.price >= 0 && item.quantity > 0);
   } catch {
