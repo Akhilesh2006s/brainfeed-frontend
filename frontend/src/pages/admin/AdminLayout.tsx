@@ -48,9 +48,9 @@ const AdminLayout = () => {
   if (!token) return null;
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <aside className="w-56 border-r border-border/60 bg-card/60 flex flex-col">
-        <div className="p-4 border-b border-border/60">
+    <div className="flex h-svh min-h-0 w-full overflow-hidden bg-background">
+      <aside className="flex h-full w-56 shrink-0 flex-col overflow-hidden border-r border-border/60 bg-card/60">
+        <div className="shrink-0 border-b border-border/60 p-4">
           <h1 className="font-serif text-lg font-semibold text-foreground">Brainfeed Admin</h1>
           {admin && (
             <p className="mt-1 text-[11px] text-muted-foreground truncate">
@@ -58,7 +58,7 @@ const AdminLayout = () => {
             </p>
           )}
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
           <Link
             to="/admin/posts?type=news"
             className={`${baseNavClasses} ${isNewsPostsActive && !isAddNewsActive ? activeClasses : inactiveClasses}`}
@@ -163,7 +163,7 @@ const AdminLayout = () => {
             </div>
           )}
         </nav>
-        <div className="p-3 border-t border-border/60">
+        <div className="shrink-0 border-t border-border/60 p-3">
           <div className="flex items-center justify-between gap-2">
             <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">
               ← Back to site
@@ -183,7 +183,7 @@ const AdminLayout = () => {
           </div>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto p-6">
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
         <Outlet />
       </main>
     </div>

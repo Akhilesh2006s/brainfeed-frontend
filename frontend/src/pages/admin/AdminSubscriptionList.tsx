@@ -1,9 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Truck, CheckCircle2, AlertCircle, Clock3, RefreshCw, Eye, Printer, Download, Package, Loader2 } from "lucide-react";
+import {
+  Truck,
+  CheckCircle2,
+  AlertCircle,
+  Clock3,
+  RefreshCw,
+  Eye,
+  Printer,
+  Download,
+  Package,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -242,6 +257,59 @@ const normalizeAddressBlock = (
   };
 };
 
+type SubscriptionListSummary = {
+  total: number;
+  pending: number;
+  active: number;
+  delivered: number;
+  cancelled: number;
+  revenue: number;
+};
+
+const emptySummary: SubscriptionListSummary = {
+  total: 0,
+  pending: 0,
+  active: 0,
+  delivered: 0,
+  cancelled: 0,
+  revenue: 0,
+};
+
+function mapApiRowToSubscription(s: Record<string, unknown>): Subscription {
+  return {
+    id: String(s.id || s._id || ""),
+    userName: s.userName as string | undefined,
+    email: s.email as string | undefined,
+    source: s.source as string | undefined,
+    planName: String(s.planName || ""),
+    planType: s.planType as string | undefined,
+    notes: s.notes as string | undefined,
+    deliveryAddress: s.deliveryAddress as Subscription["deliveryAddress"],
+    billingAddress: s.billingAddress as Subscription["billingAddress"],
+    shippingAddress: s.shippingAddress as Subscription["shippingAddress"],
+    items: Array.isArray(s.items) ? (s.items as Subscription["items"]) : [],
+    total: Number(s.total) || 0,
+    currency: String(s.currency || "INR"),
+    status: (s.status as SubscriptionStatus) || "pending",
+    paymentStatus: s.paymentStatus as string | undefined,
+    paymentMethod: s.paymentMethod as string | undefined,
+    deliveryStatus: s.deliveryStatus as string | undefined,
+    createdAt: s.createdAt as string | undefined,
+    deliveryExpectedAt: (s.deliveryExpectedAt as string | null) ?? null,
+    deliveredAt: (s.deliveredAt as string | null) ?? null,
+  };
+}
+
+function summaryFromSubscriptions(rows: Subscription[]): SubscriptionListSummary {
+  const total = rows.length;
+  const pending = rows.filter((s) => s.status === "pending" || s.status === "processing").length;
+  const active = rows.filter((s) => s.status === "active").length;
+  const delivered = rows.filter((s) => s.status === "delivered").length;
+  const cancelled = rows.filter((s) => s.status === "cancelled").length;
+  const revenue = rows.reduce((sum, s) => sum + (s.total || 0), 0);
+  return { total, pending, active, delivered, cancelled, revenue };
+}
+
 const normalizeProductName = (value?: string) =>
   String(value || "")
     .toLowerCase()
@@ -259,6 +327,11 @@ const normalizeProductName = (value?: string) =>
 const AdminSubscriptionList = () => {
   const { token } = useAdmin();
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const [summary, setSummary] = useState<SubscriptionListSummary>(emptySummary);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | "all">("all");
@@ -268,50 +341,93 @@ const AdminSubscriptionList = () => {
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const invoicePreviewRef = useRef<HTMLDivElement | null>(null);
 
-  const load = () => {
-    if (!token) return;
-    setLoading(true);
-    const qs = statusFilter !== "all" ? `?status=${statusFilter}` : "";
-    fetch(`${API_BASE}/api/admin/subscriptions${qs}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: any[]) => {
-        const mapped: Subscription[] = (Array.isArray(data) ? data : []).map((s) => ({
-          id: s.id || s._id,
-          userName: s.userName,
-          email: s.email,
-          source: s.source,
-          planName: s.planName,
-          planType: s.planType,
-          notes: s.notes,
-          deliveryAddress: s.deliveryAddress,
-          billingAddress: s.billingAddress,
-          shippingAddress: s.shippingAddress,
-          items: Array.isArray(s.items) ? s.items : [],
-          total: s.total ?? 0,
-          currency: s.currency || "INR",
-          status: (s.status as SubscriptionStatus) || "pending",
-          paymentStatus: s.paymentStatus,
-          paymentMethod: s.paymentMethod,
-          deliveryStatus: s.deliveryStatus,
-          createdAt: s.createdAt,
-          deliveryExpectedAt: s.deliveryExpectedAt,
-          deliveredAt: s.deliveredAt,
-        }));
+  const load = useCallback(
+    async (opts?: { refresh?: boolean }) => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (statusFilter !== "all") params.set("status", statusFilter);
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        params.set("limit", String(pageSize));
+        if (opts?.refresh) params.set("refresh", "1");
+        const qs = params.toString();
+        const res = await fetch(`${API_BASE}/api/admin/subscriptions${qs ? `?${qs}` : ""}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          toast.error((data && data.error) || "Failed to load subscriptions.");
+          setSubs([]);
+          setTotal(0);
+          setTotalPages(1);
+          setSummary(emptySummary);
+          return;
+        }
+        if (Array.isArray(data)) {
+          // Older API: full list in one array — paginate in the browser.
+          const mapped = (data as Record<string, unknown>[]).map(mapApiRowToSubscription);
+          const fullTotal = mapped.length;
+          const pages = Math.max(1, Math.ceil(fullTotal / pageSize));
+          const safePage = Math.min(page, pages);
+          const start = (safePage - 1) * pageSize;
+          setSubs(mapped.slice(start, start + pageSize));
+          setTotal(fullTotal);
+          setTotalPages(pages);
+          setSummary(summaryFromSubscriptions(mapped));
+          if (safePage !== page) setPage(safePage);
+          return;
+        }
+        const body = data as {
+          items?: Record<string, unknown>[];
+          total?: number;
+          totalPages?: number;
+          page?: number;
+          summary?: SubscriptionListSummary;
+          stats?: SubscriptionListSummary;
+        };
+        const mapped = (Array.isArray(body.items) ? body.items : []).map(mapApiRowToSubscription);
+        const rawTotal = Number(body.total);
+        const count =
+          Number.isFinite(rawTotal) && rawTotal >= mapped.length ? rawTotal : Math.max(mapped.length, rawTotal || 0);
+        const safePages = Math.max(1, Math.ceil(count / pageSize));
         setSubs(mapped);
-      })
-      .catch(() => {
+        setTotal(count);
+        setTotalPages(safePages);
+        const serverPage = Number(body.page);
+        const targetPage =
+          Number.isFinite(serverPage) && serverPage >= 1 ? serverPage : Math.min(page, safePages);
+        if (targetPage !== page) setPage(targetPage);
+        const summaryPayload = body.summary ?? body.stats;
+        if (summaryPayload && typeof summaryPayload === "object") {
+          setSummary({
+            total: Number(summaryPayload.total) || 0,
+            pending: Number(summaryPayload.pending) || 0,
+            active: Number(summaryPayload.active) || 0,
+            delivered: Number(summaryPayload.delivered) || 0,
+            cancelled: Number(summaryPayload.cancelled) || 0,
+            revenue: Number(summaryPayload.revenue) || 0,
+          });
+        } else {
+          setSummary(emptySummary);
+        }
+        if (opts?.refresh) {
+          toast.success("List refreshed and Razorpay payments synced.");
+        }
+      } catch {
         toast.error("Failed to load subscriptions.");
         setSubs([]);
-      })
-      .finally(() => setLoading(false));
-  };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [token, statusFilter, page, pageSize],
+  );
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, statusFilter]);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     fetch(buildApiUrl("/products"), { cache: "no-store" })
@@ -373,16 +489,6 @@ const AdminSubscriptionList = () => {
     return bestUrl || defaultProductImage;
   };
 
-  const stats = useMemo(() => {
-    const total = subs.length;
-    const pending = subs.filter((s) => s.status === "pending" || s.status === "processing").length;
-    const active = subs.filter((s) => s.status === "active").length;
-    const delivered = subs.filter((s) => s.status === "delivered").length;
-    const cancelled = subs.filter((s) => s.status === "cancelled").length;
-    const revenue = subs.reduce((sum, s) => sum + (s.total || 0), 0);
-    return { total, pending, active, delivered, cancelled, revenue };
-  }, [subs]);
-
   const updateStatus = async (id: string, status: SubscriptionStatus) => {
     if (!token) return;
     setUpdatingId(id);
@@ -400,7 +506,7 @@ const AdminSubscriptionList = () => {
         toast.error(data.error || "Failed to update subscription.");
       } else {
         toast.success("Subscription updated.");
-        setSubs((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
+        await load();
       }
     } catch {
       toast.error("Something went wrong.");
@@ -675,10 +781,13 @@ const AdminSubscriptionList = () => {
             See all Brainfeed subscription orders and review Razorpay-backed payment details with delivery status.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Select
             value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as SubscriptionStatus | "all")}
+            onValueChange={(v) => {
+              setStatusFilter(v as SubscriptionStatus | "all");
+              setPage(1);
+            }}
           >
             <SelectTrigger className="h-9 w-40 text-xs">
               <SelectValue placeholder="Filter status" />
@@ -692,16 +801,34 @@ const AdminSubscriptionList = () => {
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v) || 25);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-9 w-[130px] text-xs">
+              <SelectValue placeholder="Rows per page" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 per page</SelectItem>
+              <SelectItem value="25">25 per page</SelectItem>
+              <SelectItem value="50">50 per page</SelectItem>
+              <SelectItem value="100">100 per page</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-9 text-xs"
-            onClick={load}
+            onClick={() => void load({ refresh: true })}
             disabled={loading}
+            title="Reload list and sync latest Razorpay payments"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1" />
-            Refresh
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Refresh & sync
           </Button>
         </div>
       </div>
@@ -712,42 +839,46 @@ const AdminSubscriptionList = () => {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
             Total subscriptions
           </p>
-          <p className="font-serif text-2xl text-foreground">{stats.total}</p>
+          <p className="font-serif text-2xl text-foreground">{summary.total}</p>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/70 p-3.5">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
             In progress
           </p>
-          <p className="font-serif text-2xl text-foreground">{stats.pending}</p>
+          <p className="font-serif text-2xl text-foreground">{summary.pending}</p>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/70 p-3.5">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
             Active
           </p>
-          <p className="font-serif text-2xl text-foreground">{stats.active}</p>
+          <p className="font-serif text-2xl text-foreground">{summary.active}</p>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/70 p-3.5">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
             Delivered
           </p>
-          <p className="font-serif text-2xl text-foreground">{stats.delivered}</p>
+          <p className="font-serif text-2xl text-foreground">{summary.delivered}</p>
         </div>
         <div className="rounded-xl border border-border/60 bg-card/70 p-3.5">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
             Est. value
           </p>
           <p className="font-serif text-2xl text-foreground">
-            {formatCurrency(stats.revenue)}
+            {formatCurrency(summary.revenue)}
           </p>
         </div>
       </div>
 
       {/* Table */}
       <div className="rounded-xl border border-border/60 bg-card/70 overflow-hidden">
-        <div className="px-4 py-2 border-b border-border/60 flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">Recent orders</p>
+        <div className="px-4 py-2 border-b border-border/60 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-foreground">Orders</p>
           <p className="text-xs text-muted-foreground">
-            Showing {subs.length} {statusFilter === "all" ? "orders" : `${statusFilter} orders`}
+            {total === 0
+              ? "No orders in this view"
+              : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}${
+                  statusFilter === "all" ? "" : ` (${statusFilter})`
+                }`}
           </p>
         </div>
         {loading ? (
@@ -800,7 +931,7 @@ const AdminSubscriptionList = () => {
                           </div>
                         )}
                       </td>
-                      <td className="p-3 align-top">
+                      <td className="p-3 align-top hidden md:table-cell">
                         <div className="text-xs font-medium text-foreground">
                           {formatPaymentStatus(s.paymentStatus)}
                         </div>
@@ -867,6 +998,60 @@ const AdminSubscriptionList = () => {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Page <span className="font-medium text-foreground">{page}</span> of{" "}
+              <span className="font-medium text-foreground">{totalPages}</span>
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={loading || page <= 1}
+                onClick={() => setPage(1)}
+                aria-label="First page"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={loading || page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={loading || page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={loading || page >= totalPages}
+                onClick={() => setPage(totalPages)}
+                aria-label="Last page"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
