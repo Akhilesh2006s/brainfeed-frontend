@@ -18,6 +18,16 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 type Category = "pre-primary" | "library" | "classroom" | "magazine";
 
+/** Must match home Latest Magazines card ids (`MagazineSection`, site layout). `"auto"` = unset (match by name). */
+const HOME_MAGAZINE_SLOT_OPTIONS: { value: string; label: string }[] = [
+  { value: "auto", label: "Auto (match by product name)" },
+  { value: "main", label: "Brainfeed Magazine" },
+  { value: "primary-i", label: "Brainfeed Primary I" },
+  { value: "primary-ii", label: "Brainfeed Primary II" },
+  { value: "junior", label: "Brainfeed Junior" },
+  { value: "high", label: "Brainfeed High" },
+];
+
 const CATEGORY_LABELS: { value: Category; label: string }[] = [
   { value: "pre-primary", label: "Pre Primary Packs" },
   { value: "library", label: "Library Packs" },
@@ -37,6 +47,8 @@ const AdminProductForm = () => {
   const [description, setDescription] = useState("");
   const [badge, setBadge] = useState("");
   const [tag, setTag] = useState("");
+  const [magazineEditionLine, setMagazineEditionLine] = useState("");
+  const [homepageMagazineSlot, setHomepageMagazineSlot] = useState("");
   const [price, setPrice] = useState("");
   const [oldPrice, setOldPrice] = useState("");
   const [currency, setCurrency] = useState("INR");
@@ -74,6 +86,8 @@ const AdminProductForm = () => {
         setDescription(p.description || "");
         setBadge(p.badge || "");
         setTag(p.tag || "");
+        setMagazineEditionLine(p.magazineEditionLine || "");
+        setHomepageMagazineSlot(p.homepageMagazineSlot || "");
         setPrice(p.price != null ? String(p.price) : "");
         setOldPrice(p.oldPrice != null ? String(p.oldPrice) : "");
         setCurrency(p.currency || "INR");
@@ -121,6 +135,14 @@ const AdminProductForm = () => {
     for (let i = 0; i < 4; i++) {
       if (galleryFiles[i]) formData.append(`gallery${i}`, galleryFiles[i]);
     }
+    formData.set(
+      "magazineEditionLine",
+      category === "magazine" ? magazineEditionLine.trim() : "",
+    );
+    formData.set(
+      "homepageMagazineSlot",
+      category === "magazine" ? homepageMagazineSlot.trim() : "",
+    );
 
     setSaving(true);
     try {
@@ -253,6 +275,44 @@ const AdminProductForm = () => {
             className="h-10"
           />
         </div>
+        {category === "magazine" && (
+          <>
+            <div className="space-y-2">
+              <Label>Homepage magazine card</Label>
+              <Select
+                value={homepageMagazineSlot ? homepageMagazineSlot : "auto"}
+                onValueChange={(v) => setHomepageMagazineSlot(v === "auto" ? "" : v)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Choose card" />
+                </SelectTrigger>
+                <SelectContent>
+                  {HOME_MAGAZINE_SLOT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Pick which &quot;Latest Magazines&quot; tile this product updates. Use &quot;Auto&quot; only if the product
+                name clearly matches (e.g. contains Brainfeed Magazine, Junior, High, Primary I/II).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Homepage edition line (optional)</Label>
+              <Input
+                value={magazineEditionLine}
+                onChange={(e) => setMagazineEditionLine(e.target.value)}
+                placeholder="e.g. Volume XII · Issue 11 · February 2026"
+                className="h-10"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Shown on that home card under the title. Leave empty to keep the built-in default line for the edition.
+              </p>
+            </div>
+          </>
+        )}
         <div className="space-y-2">
           <Label>Main product image</Label>
           {imageUrl && (

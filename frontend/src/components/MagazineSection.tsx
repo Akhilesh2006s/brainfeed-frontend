@@ -14,6 +14,10 @@ type Product = {
   imageUrl?: string;
   description?: string;
   tag?: string;
+  order?: number;
+  /** Admin-set Volume · Issue · Month line for homepage magazine cards. */
+  magazineEditionLine?: string;
+  homepageMagazineSlot?: string;
 };
 
 function normalize(s: string): string {
@@ -36,6 +40,14 @@ function matchesMagazineId(product: Product, magazineId: string): boolean {
     return isMain && !isOther;
   }
   return false;
+}
+
+function productForMagazineCard(products: Product[], magazineId: string): Product | undefined {
+  const slot = String(magazineId || "").trim();
+  const ordered = [...products].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+  const bySlot = ordered.find((p) => String(p.homepageMagazineSlot || "").trim() === slot);
+  if (bySlot) return bySlot;
+  return ordered.find((p) => matchesMagazineId(p, slot));
 }
 
 type Magazine = {
@@ -105,18 +117,20 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
   ];
 
   const magazinesHydrated: Magazine[] = magazines.map((m) => {
-    const product = magazineProducts.find((p) => matchesMagazineId(p, m.id));
+    const product = productForMagazineCard(magazineProducts, m.id);
     if (!product) return m;
     const nextName = String(product.name || "").trim();
     const nextCover = String(product.imageUrl || "").trim();
     const nextHighlight = String(product.description || "").trim();
     const nextTag = String(product.tag || "").trim();
+    const nextEdition = String(product.magazineEditionLine || "").trim();
     return {
       ...m,
       name: nextName || m.name,
       cover: nextCover || m.cover,
       highlight: nextHighlight || m.highlight,
       ageGroup: nextTag || m.ageGroup,
+      edition: nextEdition || m.edition,
     };
   });
 
