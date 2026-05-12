@@ -167,10 +167,6 @@ const corsOptions = {
     if (origin.match(/^https:\/\/brainfeed-frontend-[a-z0-9]+\.vercel\.app$/)) {
       return callback(null, true);
     }
-    // Railway-hosted frontends (production + preview URLs)
-    if (origin.match(/^https:\/\/[^\s/]+\.up\.railway\.app$/)) {
-      return callback(null, true);
-    }
     callback(null, false);
   },
   credentials: true,

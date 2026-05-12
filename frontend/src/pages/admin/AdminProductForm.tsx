@@ -135,7 +135,6 @@ const AdminProductForm = () => {
     for (let i = 0; i < 4; i++) {
       if (galleryFiles[i]) formData.append(`gallery${i}`, galleryFiles[i]);
     }
-    // Send magazine-only fields last so multipart parsers reliably attach them after file parts.
     formData.set(
       "magazineEditionLine",
       category === "magazine" ? magazineEditionLine.trim() : "",
