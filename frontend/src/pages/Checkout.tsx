@@ -3,11 +3,13 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScrollReveal from "@/components/ScrollReveal";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCart } from "@/context/CartContext";
 import { buildApiUrl } from "@/lib/apiUrl";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -80,6 +82,20 @@ const Checkout = () => {
     email: "",
     contact: "",
   });
+  const [shippingSameAsBilling, setShippingSameAsBilling] = useState(false);
+
+  useEffect(() => {
+    if (!shippingSameAsBilling) return;
+    setShippingDetails({
+      contactName: billingDetails.contactName,
+      fullAddress: billingDetails.fullAddress,
+      city: billingDetails.city,
+      state: billingDetails.state,
+      pincode: billingDetails.pincode,
+      email: billingDetails.email,
+      contact: billingDetails.contact,
+    });
+  }, [shippingSameAsBilling, billingDetails]);
 
   function validateDetails() {
     const requiredBilling: Array<{ key: keyof typeof billingDetails; label: string }> = [
@@ -463,12 +479,27 @@ const Checkout = () => {
                   <p className="text-xs text-muted-foreground mb-3">
                     Shipping email, contact, full address, city, state and pincode are mandatory.
                   </p>
+                  <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5 mb-3">
+                    <Checkbox
+                      id="checkout-shipping-same-as-billing"
+                      checked={shippingSameAsBilling}
+                      onCheckedChange={(checked) => setShippingSameAsBilling(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor="checkout-shipping-same-as-billing"
+                      className="text-sm font-normal leading-snug cursor-pointer text-foreground"
+                    >
+                      Shipping address is the same as my billing address
+                    </Label>
+                  </div>
                   <div className="space-y-3">
                     <Input
                       data-checkout-field="shipping-contactName"
                       placeholder="Shipping Name *"
                       required
                       className="h-9 text-sm"
+                      disabled={shippingSameAsBilling}
                       value={shippingDetails.contactName}
                       onChange={(e) => setShippingDetails((d) => ({ ...d, contactName: e.target.value }))}
                     />
@@ -478,6 +509,7 @@ const Checkout = () => {
                       type="email"
                       required
                       className="h-9 text-sm"
+                      disabled={shippingSameAsBilling}
                       value={shippingDetails.email}
                       onChange={(e) => setShippingDetails((d) => ({ ...d, email: e.target.value }))}
                     />
@@ -486,6 +518,7 @@ const Checkout = () => {
                       placeholder="Shipping Contact *"
                       required
                       className="h-9 text-sm"
+                      disabled={shippingSameAsBilling}
                       value={shippingDetails.contact}
                       onChange={(e) => setShippingDetails((d) => ({ ...d, contact: e.target.value }))}
                     />
@@ -494,6 +527,7 @@ const Checkout = () => {
                       placeholder="Shipping Full Address *"
                       required
                       className="min-h-[80px] text-sm resize-none"
+                      disabled={shippingSameAsBilling}
                       value={shippingDetails.fullAddress}
                       onChange={(e) => setShippingDetails((d) => ({ ...d, fullAddress: e.target.value }))}
                     />
@@ -503,6 +537,7 @@ const Checkout = () => {
                         placeholder="Shipping City *"
                         required
                         className="h-9 text-sm"
+                        disabled={shippingSameAsBilling}
                         value={shippingDetails.city}
                         onChange={(e) => setShippingDetails((d) => ({ ...d, city: e.target.value }))}
                       />
@@ -511,6 +546,7 @@ const Checkout = () => {
                         placeholder="Shipping State *"
                         required
                         className="h-9 text-sm"
+                        disabled={shippingSameAsBilling}
                         value={shippingDetails.state}
                         onChange={(e) => setShippingDetails((d) => ({ ...d, state: e.target.value }))}
                       />
@@ -519,6 +555,7 @@ const Checkout = () => {
                         placeholder="Shipping Pincode *"
                         required
                         className="h-9 text-sm"
+                        disabled={shippingSameAsBilling}
                         value={shippingDetails.pincode}
                         onChange={(e) => setShippingDetails((d) => ({ ...d, pincode: e.target.value }))}
                       />

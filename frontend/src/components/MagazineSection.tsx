@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import primaryICover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (2).jpeg";
 import mainCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM.jpeg";
 import juniorCover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.30 AM (1).jpeg";
 import primaryIICover from "@/assets/WhatsApp Image 2026-02-10 at 10.48.31 AM.jpeg";
 import ScrollReveal from "./ScrollReveal";
-
-const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
+import { buildApiUrl } from "@/lib/apiUrl";
 
 type Product = {
   name?: string;
@@ -17,6 +16,7 @@ type Product = {
   order?: number;
   /** Admin-set Volume · Issue · Month line for homepage magazine cards. */
   magazineEditionLine?: string;
+  /** When set (main, junior, …), binds this product to that homepage card instead of name matching. */
   homepageMagazineSlot?: string;
 };
 
@@ -35,7 +35,10 @@ function matchesMagazineId(product: Product, magazineId: string): boolean {
   if (magazineId === "primary-i") return /\bprimary 1\b|\bprimary i\b(?!\s*i)/.test(text);
   if (magazineId === "primary-ii") return /\bprimary 2\b|\bprimary ii\b/.test(text);
   if (magazineId === "main") {
-    const isMain = /\bbrainfeed magazine\b/.test(text);
+    const isMainPhrase = /\bbrainfeed magazine\b/.test(text);
+    const isMainLoose =
+      text.includes("brainfeed") && text.includes("magazine") && !/\b(high|junior|primary)\b/.test(text);
+    const isMain = isMainPhrase || isMainLoose;
     const isOther = /\bhigh\b|\bjunior\b|\bprimary\b/.test(text);
     return isMain && !isOther;
   }
@@ -65,13 +68,27 @@ interface MagazineSectionProps {
 
 const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
   const [magazineProducts, setMagazineProducts] = useState<Product[]>([]);
+  const location = useLocation();
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/products?category=magazine`, { cache: "no-store" })
+  const loadMagazineProducts = useCallback(() => {
+    const url = `${buildApiUrl("/products")}?category=magazine`;
+    fetch(url, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((rows: Product[]) => setMagazineProducts(Array.isArray(rows) ? rows : []))
       .catch(() => setMagazineProducts([]));
   }, []);
+
+  useEffect(() => {
+    loadMagazineProducts();
+  }, [loadMagazineProducts, location.pathname]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadMagazineProducts();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadMagazineProducts]);
 
   const magazines: Magazine[] = [
     {
