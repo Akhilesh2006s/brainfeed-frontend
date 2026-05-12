@@ -1,0 +1,3 @@
+# Used when Railway root is the repo (not `frontend/`). Node 18 is EOL in nixpkgs.
+[variables]
+NIXPACKS_NODE_VERSION = "20"

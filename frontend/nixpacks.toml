@@ -1,0 +1,3 @@
+# Railway / Nixpacks: Node 18 was removed from nixpkgs (EOL). Use current LTS.
+[variables]
+NIXPACKS_NODE_VERSION = "20"
