@@ -71,8 +71,20 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
   const location = useLocation();
 
   const loadMagazineProducts = useCallback(() => {
-    const url = `${buildApiUrl("/products")}?category=magazine`;
-    fetch(url, { cache: "no-store" })
+    const base = buildApiUrl("/products");
+    const qs = new URLSearchParams({
+      category: "magazine",
+      _: String(Date.now()),
+    });
+    const sep = base.includes("?") ? "&" : "?";
+    const url = `${base}${sep}${qs.toString()}`;
+    fetch(url, {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    })
       .then((res) => (res.ok ? res.json() : []))
       .then((rows: Product[]) => setMagazineProducts(Array.isArray(rows) ? rows : []))
       .catch(() => setMagazineProducts([]));
@@ -87,7 +99,12 @@ const MagazineSection = ({ magazineIds }: MagazineSectionProps) => {
       if (document.visibilityState === "visible") loadMagazineProducts();
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    const onFocus = () => loadMagazineProducts();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadMagazineProducts]);
 
   const magazines: Magazine[] = [
