@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -18,6 +19,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  CalendarIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -310,6 +312,45 @@ function summaryFromSubscriptions(rows: Subscription[]): SubscriptionListSummary
   return { total, pending, active, delivered, cancelled, revenue };
 }
 
+/** Local calendar range [start of first day, start of day after last day) — matches Created column (en-IN). */
+function dateInputsToQuery(from?: string, to?: string): { start: string; end: string } | null {
+  const fromS = String(from || "").trim();
+  const toS = String(to || "").trim();
+  if (!fromS && !toS) return null;
+  const d0Str = fromS || toS;
+  const d1Str = toS || fromS;
+  const [y0, m0, d0] = d0Str.split("-").map(Number);
+  const [y1, m1, d1] = d1Str.split("-").map(Number);
+  if (![y0, m0, d0, y1, m1, d1].every(Number.isFinite)) return null;
+  let startDay = new Date(y0, m0 - 1, d0, 0, 0, 0, 0);
+  let endDay = new Date(y1, m1 - 1, d1, 0, 0, 0, 0);
+  if (endDay < startDay) {
+    const swap = startDay;
+    startDay = endDay;
+    endDay = swap;
+  }
+  const endExclusive = new Date(endDay.getFullYear(), endDay.getMonth(), endDay.getDate() + 1, 0, 0, 0, 0);
+  if (endExclusive.getTime() <= startDay.getTime()) return null;
+  return { start: startDay.toISOString(), end: endExclusive.toISOString() };
+}
+
+function filterSubscriptionsByDateRange(
+  rows: Subscription[],
+  fromDate?: string,
+  toDate?: string,
+): Subscription[] {
+  const range = dateInputsToQuery(fromDate, toDate);
+  if (!range) return rows;
+  const startMs = new Date(range.start).getTime();
+  const endMs = new Date(range.end).getTime();
+  return rows.filter((s) => {
+    if (!s.createdAt) return false;
+    const t = new Date(s.createdAt).getTime();
+    if (Number.isNaN(t)) return false;
+    return t >= startMs && t < endMs;
+  });
+}
+
 const normalizeProductName = (value?: string) =>
   String(value || "")
     .toLowerCase()
@@ -335,19 +376,47 @@ const AdminSubscriptionList = () => {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | "all">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [invoiceSub, setInvoiceSub] = useState<Subscription | null>(null);
   const [productImageMap, setProductImageMap] = useState<Record<string, string>>({});
   const [defaultProductImage, setDefaultProductImage] = useState("");
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const invoicePreviewRef = useRef<HTMLDivElement | null>(null);
+  const dateFromRef = useRef<HTMLInputElement | null>(null);
+  const dateToRef = useRef<HTMLInputElement | null>(null);
+
+  const openDatePicker = (ref: { current: HTMLInputElement | null }) => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+      } catch {
+        el.click();
+      }
+    }
+  };
 
   const load = useCallback(
     async (opts?: { refresh?: boolean }) => {
       if (!token) return;
+      if (dateFrom && dateTo && dateFrom > dateTo) {
+        toast.error("From date must be on or before to date.");
+        return;
+      }
       setLoading(true);
       try {
         const params = new URLSearchParams();
         if (statusFilter !== "all") params.set("status", statusFilter);
+        const dateRange = dateInputsToQuery(dateFrom, dateTo);
+        if (dateRange) {
+          params.set("start", dateRange.start);
+          params.set("end", dateRange.end);
+        }
+        if (dateFrom) params.set("fromDate", dateFrom);
+        if (dateTo) params.set("toDate", dateTo);
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
         params.set("limit", String(pageSize));
@@ -367,7 +436,11 @@ const AdminSubscriptionList = () => {
         }
         if (Array.isArray(data)) {
           // Older API: full list in one array — paginate in the browser.
-          const mapped = (data as Record<string, unknown>[]).map(mapApiRowToSubscription);
+          const mapped = filterSubscriptionsByDateRange(
+            (data as Record<string, unknown>[]).map(mapApiRowToSubscription),
+            dateFrom,
+            dateTo,
+          );
           const fullTotal = mapped.length;
           const pages = Math.max(1, Math.ceil(fullTotal / pageSize));
           const safePage = Math.min(page, pages);
@@ -422,7 +495,7 @@ const AdminSubscriptionList = () => {
         setLoading(false);
       }
     },
-    [token, statusFilter, page, pageSize],
+    [token, statusFilter, dateFrom, dateTo, page, pageSize],
   );
 
   useEffect(() => {
@@ -781,7 +854,77 @@ const AdminSubscriptionList = () => {
             See all Brainfeed subscription orders and review Razorpay-backed payment details with delivery status.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="sub-date-from" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              From date
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="Open from date calendar"
+                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => openDatePicker(dateFromRef)}
+              >
+                <CalendarIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+              </button>
+              <Input
+                ref={dateFromRef}
+                id="sub-date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setPage(1);
+                }}
+                className="h-9 w-[152px] pl-8 text-xs [&::-webkit-calendar-picker-indicator]:opacity-0"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="sub-date-to" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              To date
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="Open to date calendar"
+                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => openDatePicker(dateToRef)}
+              >
+                <CalendarIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+              </button>
+              <Input
+                ref={dateToRef}
+                id="sub-date-to"
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setPage(1);
+                }}
+                className="h-9 w-[152px] pl-8 text-xs [&::-webkit-calendar-picker-indicator]:opacity-0"
+              />
+            </div>
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs"
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+                setPage(1);
+              }}
+            >
+              Clear dates
+            </Button>
+          )}
           <Select
             value={statusFilter}
             onValueChange={(v) => {
@@ -878,7 +1021,7 @@ const AdminSubscriptionList = () => {
               ? "No orders in this view"
               : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}${
                   statusFilter === "all" ? "" : ` (${statusFilter})`
-                }`}
+                }${dateFrom || dateTo ? ` · ${dateFrom || "…"} to ${dateTo || "…"}` : ""}`}
           </p>
         </div>
         {loading ? (
