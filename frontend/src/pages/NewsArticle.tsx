@@ -247,7 +247,7 @@ const NewsArticle = () => {
                 <div className="news-article-body prose prose-sm sm:prose-base max-w-none text-foreground font-sans leading-relaxed">
                   {post.content ? (
                     <div
-                      className="[&_p]:my-4 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p:empty]:block [&_p:empty]:h-6 [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:mt-5 [&_h3]:mb-2 [&_h4]:mt-4 [&_h4]:mb-2 [&_ul]:my-4 [&_ol]:my-4 [&_li]:my-1 [&_blockquote]:my-4 [&_.editor-inline-figure]:my-6 [&_.editor-inline-img]:rounded-xl [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:max-w-full [&_.editor-inline-img]:w-full"
+                      className="[&_p]:my-4 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p:empty]:block [&_p:empty]:h-6 [&_h1]:mt-7 [&_h1]:mb-3 [&_h1]:text-[1.8rem] [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-[1.5rem] [&_h2]:font-semibold [&_h2]:leading-tight [&_h3]:mt-5 [&_h3]:mb-2 [&_h3]:text-[1.25rem] [&_h3]:font-semibold [&_h3]:leading-snug [&_h4]:mt-4 [&_h4]:mb-2 [&_h4]:text-[1.05rem] [&_h4]:font-semibold [&_h4]:leading-snug [&_ul]:my-4 [&_ol]:my-4 [&_li]:my-1 [&_blockquote]:my-4 [&_.editor-inline-figure]:my-6 [&_.editor-inline-img]:rounded-xl [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:max-w-full [&_.editor-inline-img]:w-full"
                       dangerouslySetInnerHTML={{ __html: post.content }}
                     />
                   ) : (
