@@ -156,7 +156,7 @@ const NewsArticle = () => {
       <Header />
 
       <main>
-        <section className="border-b border-border/60 py-6 md:py-8">
+        <section className="border-b border-border/60 pt-6 pb-3 md:pt-8 md:pb-4">
           <div className="container">
             <ScrollReveal direction="up" once>
               <nav className="text-xs text-muted-foreground font-sans mb-2">
@@ -228,12 +228,12 @@ const NewsArticle = () => {
         </section>
 
         {!loading && post && !notFound && (
-          <section className="py-10 md:py-14">
+          <section className="py-5 md:py-6">
             <div className="container grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
               <article>
                 {imageSrc && (
                   <div
-                    className={`mb-6 rounded-2xl overflow-hidden border bg-card ${categoryTheme.imageWrap} ${categoryTheme.imageBorder}`}
+                    className={`mb-4 rounded-2xl overflow-hidden border bg-card ${categoryTheme.imageWrap} ${categoryTheme.imageBorder}`}
                   >
                     <img
                       src={imageSrc}

@@ -6,6 +6,12 @@ import Footer from "@/components/Footer";
 import ScrollReveal from "@/components/ScrollReveal";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCart } from "@/context/CartContext";
 import { Eye } from "lucide-react";
 import magazineCover from "@/assets/magazine-cover.jpg";
@@ -169,6 +175,7 @@ const formatRupees = (amount: number, currency = "INR") =>
 const Subscribe = () => {
   const { addItem } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
+  const [isSubscriptionFormOpen, setIsSubscriptionFormOpen] = useState(true);
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -220,6 +227,20 @@ const Subscribe = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Dialog open={isSubscriptionFormOpen} onOpenChange={setIsSubscriptionFormOpen}>
+        <DialogContent className="!w-auto !max-w-none gap-0 border-0 bg-transparent p-0 shadow-none [&>button]:right-2 [&>button]:top-2 [&>button]:h-10 [&>button]:w-10 [&>button]:rounded-full [&>button]:!bg-white [&>button]:!text-black [&>button]:opacity-100 [&>button]:shadow-lg [&>button]:flex [&>button]:items-center [&>button]:justify-center [&>button>svg]:h-5 [&>button>svg]:w-5 sm:[&>button]:-right-14 sm:[&>button]:top-0">
+          <DialogTitle className="sr-only">Brainfeed annual subscription packs</DialogTitle>
+          <DialogDescription className="sr-only">
+            Brainfeed magazine classroom and library annual subscription pack details.
+          </DialogDescription>
+          <img
+            src="/BFM%20BULK%20SUB%20FORM%20JULY%2026.jpg.jpeg"
+            alt="Brainfeed annual subscription packs and order form"
+            className="block h-auto max-h-[88vh] w-auto max-w-[calc(100vw-2rem)] object-contain"
+          />
+        </DialogContent>
+      </Dialog>
+
       <TopBar />
       <Header />
 
