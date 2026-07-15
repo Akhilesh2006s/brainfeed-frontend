@@ -7,8 +7,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 import { Calendar, Clock } from "lucide-react";
 import { buildNewsPath } from "@/lib/seo";
 import { getCategoryTheme, getCategoryPillClass } from "@/lib/categoryTheme";
-
-const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
+import { buildApiUrl } from "@/lib/apiUrl";
 
 type NewsPost = {
   id: string;
@@ -57,7 +56,7 @@ const NewsArticle = () => {
     if (!id) return;
     setLoading(true);
     setNotFound(false);
-    fetch(`${API_BASE}/api/posts/news/${id}`)
+    fetch(buildApiUrl(`/posts/news/${id}`), { cache: "no-store" })
       .then(async (res) => {
         if (res.status === 404) {
           setNotFound(true);
@@ -135,7 +134,7 @@ const NewsArticle = () => {
   }, [post]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/articles`)
+    fetch(buildApiUrl("/articles"), { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data: any[]) => {
         const items = (Array.isArray(data) ? data : [])
