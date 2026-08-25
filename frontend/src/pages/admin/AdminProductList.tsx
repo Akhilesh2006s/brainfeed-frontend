@@ -83,8 +83,8 @@ const AdminProductList = () => {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="mb-4 flex shrink-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           <Package className="h-6 w-6 text-accent" />
           <div>
@@ -102,7 +102,7 @@ const AdminProductList = () => {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-border/60 bg-card/70 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/70">
         {loading ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">Loading products…</p>
         ) : products.length === 0 ? (
@@ -110,36 +110,36 @@ const AdminProductList = () => {
             No products found yet. Add your first pack or magazine using the button above.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border/60">
+          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+            <table className="w-full border-separate border-spacing-0 text-sm">
+              <thead>
                 <tr>
-                  <th className="text-left p-3 font-medium">Name</th>
-                  <th className="text-left p-3 font-medium">Category</th>
-                  <th className="text-left p-3 font-medium">Price</th>
-                  <th className="text-left p-3 font-medium">Badge</th>
-                  <th className="text-left p-3 font-medium">Active</th>
-                  <th className="text-right p-3 font-medium">Actions</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Name</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Category</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Price</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Badge</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Active</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {products.map((p) => (
                   <tr
                     key={p._id}
-                    className="border-b border-border/40 hover:bg-muted/30"
+                    className="hover:bg-muted/30"
                   >
-                    <td className="p-3">
+                    <td className="border-b border-border/40 p-3">
                       <div className="font-medium text-foreground">{p.name}</div>
                       {p.description && (
-                        <div className="text-xs text-muted-foreground line-clamp-1">
+                        <div className="line-clamp-1 text-xs text-muted-foreground">
                           {p.description}
                         </div>
                       )}
                     </td>
-                    <td className="p-3 text-xs text-muted-foreground">
+                    <td className="border-b border-border/40 p-3 text-xs text-muted-foreground">
                       {CATEGORY_LABELS[p.category]}
                     </td>
-                    <td className="p-3 text-sm text-foreground">
+                    <td className="border-b border-border/40 p-3 text-sm text-foreground">
                       {p.oldPrice ? (
                         <span className="flex flex-col">
                           <span className="text-xs text-muted-foreground line-through">
@@ -151,21 +151,21 @@ const AdminProductList = () => {
                         <>₹{p.price.toLocaleString("en-IN")}</>
                       )}
                     </td>
-                    <td className="p-3 text-xs text-muted-foreground">
+                    <td className="border-b border-border/40 p-3 text-xs text-muted-foreground">
                       {p.badge || "—"}
                     </td>
-                    <td className="p-3 text-xs">
+                    <td className="border-b border-border/40 p-3 text-xs">
                       {p.active ? (
-                        <span className="inline-flex rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5">
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">
+                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
                           Hidden
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-right">
+                    <td className="border-b border-border/40 p-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link to={`/admin/products/${p._id}/edit`}>
                           <Button variant="ghost" size="sm" className="h-8">

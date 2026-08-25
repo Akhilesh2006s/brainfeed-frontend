@@ -133,20 +133,22 @@ const AdminPostList = () => {
       : posts.filter((p) => p.category === activeCategory);
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className="h-6 w-6 text-accent" />
-        <h1 className="font-serif text-2xl text-foreground">{title}</h1>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0">
+        <div className="mb-4 flex items-center gap-2">
+          <Icon className="h-6 w-6 text-accent" />
+          <h1 className="font-serif text-2xl text-foreground">{title}</h1>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">
+          View news articles and filter by category or status (drafts are not visible on the public site). Choose a
+          start and end date (inclusive) to match the Date column; Apply runs the request. Clear removes the date filter.
+        </p>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">
-        View news articles and filter by category or status (drafts are not visible on the public site). Choose a
-        start and end date (inclusive) to match the Date column; Apply runs the request. Clear removes the date filter.
-      </p>
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
-        <div className="space-y-4">
-          <aside className="rounded-lg border border-border/60 bg-card/60 p-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <aside className="shrink-0 rounded-lg border border-border/60 bg-card/60 p-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                 Date range
@@ -230,8 +232,8 @@ const AdminPostList = () => {
             </div>
           </aside>
 
-          <div className="grid gap-6 lg:grid-cols-[220px,minmax(0,1fr)] items-start">
-            <aside className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-6 lg:grid lg:grid-cols-[220px,minmax(0,1fr)]">
+            <aside className="min-h-0 shrink-0 space-y-4 overflow-y-auto rounded-lg border border-border/60 bg-card/60 p-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                 Status
@@ -283,12 +285,12 @@ const AdminPostList = () => {
             </div>
           </aside>
 
-          <div className="rounded-lg border border-border/60 overflow-hidden min-h-[200px]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/60">
             {posts.length === 0 ? (
-              <div className="p-8 text-sm text-muted-foreground text-center">
+              <div className="p-8 text-center text-sm text-muted-foreground">
                 {dateRangeApplied?.from ? (
                   <>
-                    <p className="font-medium text-foreground mb-1">
+                    <p className="mb-1 font-medium text-foreground">
                       No posts in {formatRangeLabel(dateRangeApplied)}
                     </p>
                     <p>Try another range or clear the date filter to see all posts.</p>
@@ -300,53 +302,54 @@ const AdminPostList = () => {
                 )}
               </div>
             ) : filteredPosts.length === 0 ? (
-              <div className="p-8 text-sm text-muted-foreground text-center">
-                <p className="font-medium text-foreground mb-1">No posts in this category</p>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                <p className="mb-1 font-medium text-foreground">No posts in this category</p>
                 <p>Choose &ldquo;All&rdquo; or another category.</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b border-border/60">
-                  <tr>
-                    <th className="text-left p-3 font-medium">Title</th>
-                    <th className="text-left p-3 font-medium">Status</th>
-                    <th className="text-left p-3 font-medium">Category</th>
-                    <th className="text-left p-3 font-medium">Editor</th>
-                    <th className="text-left p-3 font-medium">Views</th>
-                    <th className="text-left p-3 font-medium">Date</th>
-                    <th className="text-right p-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
+              <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+                <table className="w-full border-separate border-spacing-0 text-sm">
+                  <thead>
+                    <tr>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Title</th>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Status</th>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Category</th>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Editor</th>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Views</th>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Date</th>
+                      <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-right font-medium">Actions</th>
+                    </tr>
+                  </thead>
                 <tbody>
                   {filteredPosts.map((post) => (
                     <tr
                       key={post._id}
-                      className="border-b border-border/40 hover:bg-muted/30"
+                      className="hover:bg-muted/30"
                     >
-                      <td className="p-3 font-medium max-w-[200px] truncate">{post.title}</td>
-                      <td className="p-3">
+                      <td className="max-w-[200px] truncate border-b border-border/40 p-3 font-medium">{post.title}</td>
+                      <td className="border-b border-border/40 p-3">
                         {post.status === "draft" ? (
-                          <span className="inline-flex rounded-md bg-amber-500/15 text-amber-900 dark:text-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                          <span className="inline-flex rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
                             Draft
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">Published</span>
                         )}
                       </td>
-                      <td className="p-3 text-muted-foreground">{post.category}</td>
-                      <td className="p-3 text-muted-foreground text-xs">
+                      <td className="border-b border-border/40 p-3 text-muted-foreground">{post.category}</td>
+                      <td className="border-b border-border/40 p-3 text-xs text-muted-foreground">
                         {post.publishedBy?.name?.trim() || post.publishedBy?.email || "—"}
                       </td>
-                      <td className="p-3">
+                      <td className="border-b border-border/40 p-3">
                         <span className="inline-flex items-center gap-1">
                           <Eye className="h-3.5 w-3.5" />
                           {post.views ?? 0}
                         </span>
                       </td>
-                      <td className="p-3 text-muted-foreground">
+                      <td className="border-b border-border/40 p-3 text-muted-foreground">
                         {post.createdAt ? new Date(post.createdAt).toLocaleDateString("en-IN") : "—"}
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="border-b border-border/40 p-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {post.status !== "draft" ? (
                             <Link
@@ -382,6 +385,7 @@ const AdminPostList = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
           </div>

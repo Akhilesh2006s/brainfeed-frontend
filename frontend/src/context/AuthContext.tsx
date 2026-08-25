@@ -23,6 +23,12 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (data: SignupData) => Promise<{ error?: string }>;
   updateProfile: (data: ProfileUpdateData) => Promise<{ error?: string }>;
+  changePassword: (data: {
+    currentPassword: string;
+    newPassword: string;
+    confirmEmail: string;
+  }) => Promise<{ error?: string; message?: string; pendingConfirmation?: boolean }>;
+  confirmPasswordChange: (token: string) => Promise<{ error?: string; message?: string }>;
   logout: () => void;
 };
 
@@ -138,6 +144,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const changePassword = async (data: {
+    currentPassword: string;
+    newPassword: string;
+    confirmEmail: string;
+  }) => {
+    if (!token) return { error: "Not logged in" };
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/password-change`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: json.error || "Failed to change password" };
+      return {
+        message: json.message || "Password change submitted.",
+        pendingConfirmation: Boolean(json.pendingConfirmation),
+      };
+    } catch {
+      return { error: "Something went wrong. Please try again." };
+    }
+  };
+
+  const confirmPasswordChange = async (confirmToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/password-change/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: confirmToken }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: json.error || "Failed to confirm password change" };
+      return { message: json.message || "Password updated." };
+    } catch {
+      return { error: "Something went wrong. Please try again." };
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -145,7 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, isLoading, login, signup, updateProfile, logout }),
+    () => ({ user, token, isLoading, login, signup, updateProfile, changePassword, confirmPasswordChange, logout }),
     [user, token, isLoading]
   );
 

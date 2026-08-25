@@ -116,6 +116,15 @@ function latestMagazineIdsToSlots(ids: string[] | undefined): [string, string, s
   return a.slice(0, 5) as [string, string, string, string, string];
 }
 
+function cloneSettings(s: Settings): Settings {
+  return JSON.parse(JSON.stringify(s || {})) as Settings;
+}
+
+function linksDraftFromSettings(s: Settings): string {
+  const links = s.topBar?.links?.length ? s.topBar.links : [...DEFAULT_TOP_BAR_LINKS];
+  return topBarLinksToText(links);
+}
+
 const AdminSiteSettings = () => {
   const { token, isAdmin } = useAdmin();
   const { refresh: refreshPublicSiteSettings } = useSiteSettings();
@@ -136,6 +145,7 @@ const AdminSiteSettings = () => {
   const [section, setSection] = useState<"home" | "topbar" | "footer" | "about" | "contact">("home");
   const [newsOptions, setNewsOptions] = useState<NewsOption[]>([]);
   const [topLinksDraft, setTopLinksDraft] = useState("");
+  const [baseline, setBaseline] = useState<{ data: Settings; topLinksDraft: string } | null>(null);
 
   useEffect(() => {
     if (!token || !isAdmin) return;
@@ -146,7 +156,11 @@ const AdminSiteSettings = () => {
       .then((res) => res.json().then((j) => ({ ok: res.ok, j })))
       .then(({ ok, j }) => {
         if (!ok) throw new Error(j?.error || "Failed to load settings");
-        setData(j || {});
+        const loaded = (j || {}) as Settings;
+        setData(loaded);
+        const draft = linksDraftFromSettings(loaded);
+        setTopLinksDraft(draft);
+        setBaseline({ data: cloneSettings(loaded), topLinksDraft: draft });
       })
       .catch((e) => toast.error(e?.message || "Failed to load settings"))
       .finally(() => setLoading(false));
@@ -203,7 +217,9 @@ const AdminSiteSettings = () => {
       if (!res.ok) throw new Error(j?.error || "Failed to save");
       setData(j || {});
       const savedLinks = j?.topBar?.links?.length ? j.topBar.links : [...DEFAULT_TOP_BAR_LINKS];
-      setTopLinksDraft(topBarLinksToText(savedLinks));
+      const draft = topBarLinksToText(savedLinks);
+      setTopLinksDraft(draft);
+      setBaseline({ data: cloneSettings(j || {}), topLinksDraft: draft });
       await refreshPublicSiteSettings();
       toast.success("Site settings saved.");
     } catch (e: any) {
@@ -211,6 +227,16 @@ const AdminSiteSettings = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const cancel = () => {
+    if (!baseline) return;
+    const dirty =
+      JSON.stringify(data) !== JSON.stringify(baseline.data) || topLinksDraft !== baseline.topLinksDraft;
+    if (dirty && !confirm("Discard unsaved changes?")) return;
+    setData(cloneSettings(baseline.data));
+    setTopLinksDraft(baseline.topLinksDraft);
+    if (dirty) toast.success("Changes discarded.");
   };
 
   const readMultiSelectValues = (select: HTMLSelectElement) =>
@@ -697,57 +723,63 @@ const AdminSiteSettings = () => {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Brainfeed Magazine cover</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-fit"
-                disabled={uploadingAboutImage}
-                onClick={() => {
-                  setAboutUploadKey("aboutCoverMain");
-                  document.getElementById("about-upload-input")?.click();
-                }}
-              >
-                {uploadingAboutImage ? "Uploading…" : "Upload image"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Label>Brainfeed Magazine cover</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
+                  disabled={uploadingAboutImage}
+                  onClick={() => {
+                    setAboutUploadKey("aboutCoverMain");
+                    document.getElementById("about-upload-input")?.click();
+                  }}
+                >
+                  {uploadingAboutImage ? "Uploading…" : "Upload image"}
+                </Button>
+              </div>
               {data.about?.aboutCoverMain && (
                 <p className="truncate text-xs text-muted-foreground">Current: {data.about.aboutCoverMain}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Brainfeed High cover</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-fit"
-                disabled={uploadingAboutImage}
-                onClick={() => {
-                  setAboutUploadKey("aboutCoverHigh");
-                  document.getElementById("about-upload-input")?.click();
-                }}
-              >
-                {uploadingAboutImage ? "Uploading…" : "Upload image"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Label>Brainfeed High cover</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
+                  disabled={uploadingAboutImage}
+                  onClick={() => {
+                    setAboutUploadKey("aboutCoverHigh");
+                    document.getElementById("about-upload-input")?.click();
+                  }}
+                >
+                  {uploadingAboutImage ? "Uploading…" : "Upload image"}
+                </Button>
+              </div>
               {data.about?.aboutCoverHigh && (
                 <p className="truncate text-xs text-muted-foreground">Current: {data.about.aboutCoverHigh}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Brainfeed Primary 2 cover</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-fit"
-                disabled={uploadingAboutImage}
-                onClick={() => {
-                  setAboutUploadKey("aboutCoverPrimary2");
-                  document.getElementById("about-upload-input")?.click();
-                }}
-              >
-                {uploadingAboutImage ? "Uploading…" : "Upload image"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Label>Brainfeed Primary 2 cover</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
+                  disabled={uploadingAboutImage}
+                  onClick={() => {
+                    setAboutUploadKey("aboutCoverPrimary2");
+                    document.getElementById("about-upload-input")?.click();
+                  }}
+                >
+                  {uploadingAboutImage ? "Uploading…" : "Upload image"}
+                </Button>
+              </div>
               {data.about?.aboutCoverPrimary2 && (
                 <p className="truncate text-xs text-muted-foreground">
                   Current: {data.about.aboutCoverPrimary2}
@@ -756,19 +788,21 @@ const AdminSiteSettings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Brainfeed Primary 1 cover</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-fit"
-                disabled={uploadingAboutImage}
-                onClick={() => {
-                  setAboutUploadKey("aboutCoverPrimary1");
-                  document.getElementById("about-upload-input")?.click();
-                }}
-              >
-                {uploadingAboutImage ? "Uploading…" : "Upload image"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Label>Brainfeed Primary 1 cover</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
+                  disabled={uploadingAboutImage}
+                  onClick={() => {
+                    setAboutUploadKey("aboutCoverPrimary1");
+                    document.getElementById("about-upload-input")?.click();
+                  }}
+                >
+                  {uploadingAboutImage ? "Uploading…" : "Upload image"}
+                </Button>
+              </div>
               {data.about?.aboutCoverPrimary1 && (
                 <p className="truncate text-xs text-muted-foreground">
                   Current: {data.about.aboutCoverPrimary1}
@@ -777,19 +811,21 @@ const AdminSiteSettings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Brainfeed Junior cover</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-fit"
-                disabled={uploadingAboutImage}
-                onClick={() => {
-                  setAboutUploadKey("aboutCoverJunior");
-                  document.getElementById("about-upload-input")?.click();
-                }}
-              >
-                {uploadingAboutImage ? "Uploading…" : "Upload image"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Label>Brainfeed Junior cover</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-fit"
+                  disabled={uploadingAboutImage}
+                  onClick={() => {
+                    setAboutUploadKey("aboutCoverJunior");
+                    document.getElementById("about-upload-input")?.click();
+                  }}
+                >
+                  {uploadingAboutImage ? "Uploading…" : "Upload image"}
+                </Button>
+              </div>
               {data.about?.aboutCoverJunior && (
                 <p className="truncate text-xs text-muted-foreground">Current: {data.about.aboutCoverJunior}</p>
               )}
@@ -1136,6 +1172,9 @@ const AdminSiteSettings = () => {
       <div className="flex items-center gap-3">
         <Button type="button" onClick={save} disabled={saving}>
           {saving ? "Saving…" : "Save settings"}
+        </Button>
+        <Button type="button" variant="outline" onClick={cancel} disabled={saving || !baseline}>
+          Cancel
         </Button>
       </div>
     </div>

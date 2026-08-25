@@ -104,7 +104,7 @@ const AdminFlipbookList = () => {
                 <th className="text-left p-3 font-medium">Slug (URL)</th>
                 <th className="text-left p-3 font-medium">E-Magazines</th>
                 <th className="text-left p-3 font-medium">Updated</th>
-                <th className="text-right p-3 font-medium">Actions</th>
+                <th className="w-[1%] whitespace-nowrap p-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -133,22 +133,22 @@ const AdminFlipbookList = () => {
                   <td className="p-3 text-muted-foreground">
                     {fb.updatedAt ? new Date(fb.updatedAt).toLocaleDateString() : "—"}
                   </td>
-                  <td className="p-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <a href={`/flipbook/${fb.slug}`} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="sm" className="h-8">
+                  <td className="w-[1%] whitespace-nowrap p-3">
+                    <div className="ml-auto grid w-max grid-cols-[3.5rem_2rem_4.5rem_2rem] items-center justify-items-center gap-2">
+                      <Button asChild variant="ghost" size="sm" className="h-8 w-full px-0">
+                        <a href={`/flipbook/${fb.slug}`} target="_blank" rel="noopener noreferrer">
                           View
-                        </Button>
-                      </a>
-                      <Link to={`/admin/flipbooks/${fb._id}/edit`}>
-                        <Button variant="ghost" size="sm" className="h-8">
+                        </a>
+                      </Button>
+                      <Button asChild variant="ghost" size="sm" className="h-8 w-full px-0">
+                        <Link to={`/admin/flipbooks/${fb._id}/edit`} aria-label="Edit flipbook">
                           <Pencil className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8"
+                        className="h-8 w-full px-0"
                         onClick={() => toggleEmagVisibility(fb._id, fb.showOnEmagazines !== false)}
                       >
                         {fb.showOnEmagazines !== false ? "Hide" : "Show"}
@@ -156,7 +156,8 @@ const AdminFlipbookList = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 text-destructive hover:text-destructive"
+                        className="h-8 w-full px-0 text-destructive hover:text-destructive"
+                        aria-label="Delete flipbook"
                         onClick={() => handleDelete(fb._id)}
                       >
                         <Trash2 className="h-4 w-4" />

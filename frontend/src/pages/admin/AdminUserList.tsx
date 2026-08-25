@@ -33,6 +33,7 @@ const AdminUserList = () => {
   const [saving, setSaving] = useState(false);
   const [changingPasswordFor, setChangingPasswordFor] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -194,8 +195,14 @@ const AdminUserList = () => {
   const handlePasswordUpdate = async (userId: string) => {
     if (!token) return;
     const trimmed = newPassword.trim();
+    const emailConfirm = confirmEmail.trim().toLowerCase();
     if (trimmed.length < 6) {
       toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    const target = users.find((u) => u.id === userId);
+    if (!emailConfirm || emailConfirm !== String(target?.email || "").toLowerCase()) {
+      toast.error("Enter this user's email to confirm the password change.");
       return;
     }
 
@@ -207,7 +214,7 @@ const AdminUserList = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ password: trimmed }),
+        body: JSON.stringify({ password: trimmed, confirmEmail: emailConfirm }),
       });
 
       const data = await res.json();
@@ -216,9 +223,10 @@ const AdminUserList = () => {
         return;
       }
 
-      toast.success("Password updated.");
+      toast.success("Password updated. A confirmation email is sent when mail is configured.");
       setChangingPasswordFor(null);
       setNewPassword("");
+      setConfirmEmail("");
       refresh();
     } catch {
       toast.error("Something went wrong.");
@@ -372,20 +380,24 @@ const AdminUserList = () => {
                     </SelectContent>
                   </Select>
 
-                  {user.role === "editor" && changingPasswordFor !== user.id ? (
+                  {changingPasswordFor !== user.id ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs"
-                      onClick={() => setChangingPasswordFor(user.id)}
+                      onClick={() => {
+                        setChangingPasswordFor(user.id);
+                        setNewPassword("");
+                        setConfirmEmail("");
+                      }}
                     >
                       Set password
                     </Button>
                   ) : null}
 
-                  {user.role === "editor" && changingPasswordFor === user.id ? (
-                    <div className="flex items-center gap-2">
+                  {changingPasswordFor === user.id ? (
+                    <div className="flex flex-wrap items-center gap-2">
                       <Input
                         type="password"
                         autoComplete="new-password"
@@ -393,6 +405,14 @@ const AdminUserList = () => {
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="New password"
                         className="h-8 w-40"
+                      />
+                      <Input
+                        type="email"
+                        autoComplete="off"
+                        value={confirmEmail}
+                        onChange={(e) => setConfirmEmail(e.target.value)}
+                        placeholder="Confirm email"
+                        className="h-8 w-48"
                       />
                       <Button
                         type="button"
@@ -412,6 +432,7 @@ const AdminUserList = () => {
                         onClick={() => {
                           setChangingPasswordFor(null);
                           setNewPassword("");
+                          setConfirmEmail("");
                         }}
                       >
                         Cancel

@@ -19,7 +19,6 @@ import {
   Strikethrough,
   List,
   ListOrdered,
-  Heading2,
   Link as LinkIcon,
   Eraser,
   ChevronDown,
@@ -27,6 +26,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 /** Snapshots the current selection when it is inside the editor (used before toolbar / menu interactions). */
 function captureEditorSelection(editor: HTMLElement | null, savedRange: MutableRefObject<Range | null>) {
@@ -520,13 +520,14 @@ export type RichTextEditorProps = {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  /** full = headings, A+/A-, text color (news post). basic = simpler toolbar (pages). */
+  /** full = A+/A-, text color, inline images (news post). basic = simpler toolbar (pages). Both include H1–H4. */
   variant?: "full" | "basic";
   /**
    * When set (e.g. admin news), enables upload + paste-to-insert for inline images
    * via POST /api/admin/posts/inline-image — inserts responsive <figure><img> in the body.
    */
   uploadInlineImage?: (file: File) => Promise<string>;
+  className?: string;
 };
 
 /**
@@ -539,6 +540,7 @@ export function RichTextEditor({
   placeholder,
   variant = "full",
   uploadInlineImage,
+  className,
 }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1298,13 +1300,18 @@ export function RichTextEditor({
 
   const editorClassName =
     variant === "full"
-      ? "rich-editor-body flow-root min-h-[200px] p-3 text-foreground focus:outline-none [&_p]:my-1.5 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_h1]:text-[1.8rem] [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:mt-3 [&_h1]:mb-2 [&_h2]:text-[1.5rem] [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-[1.25rem] [&_h3]:font-semibold [&_h3]:leading-snug [&_h3]:mt-2.5 [&_h3]:mb-1.5 [&_h4]:text-[1.05rem] [&_h4]:font-semibold [&_h4]:leading-snug [&_h4]:mt-2 [&_h4]:mb-1 [&_.editor-fs-lg]:text-lg [&_.editor-fs-sm]:text-xs [&_.editor-inline-figure]:my-4 [&_.editor-inline-figure]:cursor-grab [&_.editor-inline-figure]:active:cursor-grabbing [&_.editor-inline-figure]:rounded-lg [&_.editor-inline-figure]:ring-1 [&_.editor-inline-figure]:ring-border/40 [&_.editor-inline-figure-inner]:min-h-[2.5rem] [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:rounded-lg [&_.editor-inline-img]:block [&_.editor-img-size-bar]:pointer-events-auto [&_.editor-img-size-bar]:absolute [&_.editor-img-size-bar]:top-2 [&_.editor-img-size-bar]:right-2 [&_.editor-img-size-bar]:z-20 [&_.editor-img-size-bar]:flex [&_.editor-img-size-bar]:flex-wrap [&_.editor-img-size-bar]:gap-0.5 [&_.editor-img-size-bar]:rounded-md [&_.editor-img-size-bar]:border [&_.editor-img-size-bar]:border-border [&_.editor-img-size-bar]:bg-background/95 [&_.editor-img-size-bar]:p-0.5 [&_.editor-img-size-bar]:shadow-sm [&_.editor-img-size-bar]:opacity-0 [&_.editor-img-size-bar]:transition-opacity [&_.editor-inline-figure:hover_.editor-img-size-bar]:opacity-100 [&_.editor-inline-figure:focus-within_.editor-img-size-bar]:opacity-100 [&_.editor-img-size-btn]:flex [&_.editor-img-size-btn]:h-7 [&_.editor-img-size-btn]:min-w-[1.75rem] [&_.editor-img-size-btn]:items-center [&_.editor-img-size-btn]:justify-center [&_.editor-img-size-btn]:rounded [&_.editor-img-size-btn]:text-xs [&_.editor-img-size-btn]:font-bold [&_.editor-img-size-btn]:text-foreground [&_.editor-img-size-btn]:hover:bg-muted empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
-      : "rich-editor-body min-h-[200px] p-3 text-foreground focus:outline-none [&_p]:my-1.5 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_h2]:text-xl [&_h2]:font-semibold empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground";
+      ? "rich-editor-body flow-root min-h-full p-3 text-foreground focus:outline-none [&_p]:my-1.5 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_h1]:text-[1.8rem] [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:mt-3 [&_h1]:mb-2 [&_h2]:text-[1.5rem] [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-[1.25rem] [&_h3]:font-semibold [&_h3]:leading-snug [&_h3]:mt-2.5 [&_h3]:mb-1.5 [&_h4]:text-[1.05rem] [&_h4]:font-semibold [&_h4]:leading-snug [&_h4]:mt-2 [&_h4]:mb-1 [&_.editor-fs-lg]:text-lg [&_.editor-fs-sm]:text-xs [&_.editor-inline-figure]:my-4 [&_.editor-inline-figure]:cursor-grab [&_.editor-inline-figure]:active:cursor-grabbing [&_.editor-inline-figure]:rounded-lg [&_.editor-inline-figure]:ring-1 [&_.editor-inline-figure]:ring-border/40 [&_.editor-inline-figure-inner]:min-h-[2.5rem] [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:rounded-lg [&_.editor-inline-img]:block [&_.editor-img-size-bar]:pointer-events-auto [&_.editor-img-size-bar]:absolute [&_.editor-img-size-bar]:top-2 [&_.editor-img-size-bar]:right-2 [&_.editor-img-size-bar]:z-20 [&_.editor-img-size-bar]:flex [&_.editor-img-size-bar]:flex-wrap [&_.editor-img-size-bar]:gap-0.5 [&_.editor-img-size-bar]:rounded-md [&_.editor-img-size-bar]:border [&_.editor-img-size-bar]:border-border [&_.editor-img-size-bar]:bg-background/95 [&_.editor-img-size-bar]:p-0.5 [&_.editor-img-size-bar]:shadow-sm [&_.editor-img-size-bar]:opacity-0 [&_.editor-img-size-bar]:transition-opacity [&_.editor-inline-figure:hover_.editor-img-size-bar]:opacity-100 [&_.editor-inline-figure:focus-within_.editor-img-size-bar]:opacity-100 [&_.editor-img-size-btn]:flex [&_.editor-img-size-btn]:h-7 [&_.editor-img-size-btn]:min-w-[1.75rem] [&_.editor-img-size-btn]:items-center [&_.editor-img-size-btn]:justify-center [&_.editor-img-size-btn]:rounded [&_.editor-img-size-btn]:text-xs [&_.editor-img-size-btn]:font-bold [&_.editor-img-size-btn]:text-foreground [&_.editor-img-size-btn]:hover:bg-muted empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+      : "rich-editor-body min-h-full p-3 text-foreground focus:outline-none [&_p]:my-1.5 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_h1]:text-[1.8rem] [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:mt-3 [&_h1]:mb-2 [&_h2]:text-[1.5rem] [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-[1.25rem] [&_h3]:font-semibold [&_h3]:leading-snug [&_h3]:mt-2.5 [&_h3]:mb-1.5 [&_h4]:text-[1.05rem] [&_h4]:font-semibold [&_h4]:leading-snug [&_h4]:mt-2 [&_h4]:mb-1 empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground";
 
   return (
-    <div className="rounded-md border border-input bg-background overflow-visible">
+    <div
+      className={cn(
+        "flex min-h-[16rem] flex-col overflow-hidden rounded-md border border-input bg-background",
+        className ?? "h-[min(28rem,calc(100svh-16rem))]",
+      )}
+    >
       <div
-        className="flex flex-wrap items-center gap-0.5 p-1.5 border-b border-input bg-muted/50"
+        className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-input bg-muted p-1.5"
         onPointerDownCapture={captureSelection}
       >
         <Button
@@ -1353,62 +1360,20 @@ export function RichTextEditor({
         </Button>
         <span className="w-px h-6 bg-border mx-0.5" />
 
-        {variant === "full" ? (
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onMouseDown={toolbarMouseDown}
-              onClick={() => applyHeading("h2")}
-              title="Heading 2"
-            >
-              <Heading2 className="h-4 w-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1 px-2 text-[11px] text-muted-foreground border border-border"
-                  onMouseDown={toolbarMouseDown}
-                >
-                  {blockLabel[currentBlock]}
-                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="min-w-[10rem]"
-                onCloseAutoFocus={(e) => e.preventDefault()}
-              >
-                {(["p", "h1", "h2", "h3", "h4"] as const).map((lvl) => (
-                  <DropdownMenuItem
-                    key={lvl}
-                    onPointerDown={captureSelection}
-                    onSelect={() => requestAnimationFrame(() => applyHeading(lvl))}
-                  >
-                    {blockLabel[lvl]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : (
+        {(["h1", "h2", "h3", "h4"] as const).map((level) => (
           <Button
+            key={level}
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className={`${btn(currentBlock === level)} text-[11px] font-bold`}
             onMouseDown={toolbarMouseDown}
-            onClick={() => cmd("formatBlock", "<h2>")}
-            title="Heading 2"
+            onClick={() => applyHeading(currentBlock === level ? "p" : level)}
+            title={blockLabel[level]}
           >
-            <Heading2 className="h-4 w-4" />
+            {level.toUpperCase()}
           </Button>
-        )}
+        ))}
 
         <Button
           type="button"
@@ -1592,13 +1557,13 @@ export function RichTextEditor({
       </div>
 
       {selectionLinkUrl ? (
-        <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 border-b border-input bg-muted/40 text-[11px]">
-          <span className="text-muted-foreground font-medium shrink-0">Linked to:</span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-input bg-muted/40 px-2 py-1.5 text-[11px]">
+          <span className="shrink-0 font-medium text-muted-foreground">Linked to:</span>
           <a
             href={selectionLinkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent font-mono break-all min-w-0 flex-1 underline-offset-2 hover:underline"
+            className="min-w-0 flex-1 break-all font-mono text-accent underline-offset-2 hover:underline"
             title={selectionLinkUrl}
           >
             {selectionLinkUrl}
@@ -1607,7 +1572,7 @@ export function RichTextEditor({
             type="button"
             variant="secondary"
             size="sm"
-            className="h-7 text-[10px] shrink-0"
+            className="h-7 shrink-0 text-[10px]"
             onMouseDown={toolbarMouseDown}
             onClick={editCurrentLink}
           >
@@ -1616,22 +1581,24 @@ export function RichTextEditor({
         </div>
       ) : null}
 
-      <div
-        ref={ref}
-        contentEditable
-        className={editorClassName}
-        data-placeholder={placeholder}
-        onInput={emit}
-        onPaste={uploadInlineImage ? handlePasteInlineImage : undefined}
-        onMouseUp={updateFormatState}
-        onKeyUp={updateFormatState}
-        onDragStart={handleEditorDragStart}
-        onDragEnd={handleEditorDragEnd}
-        onDragOver={handleEditorDragOver}
-        onDragEnter={handleEditorDragEnter}
-        onDrop={handleEditorDrop}
-        suppressContentEditableWarning
-      />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div
+          ref={ref}
+          contentEditable
+          className={editorClassName}
+          data-placeholder={placeholder}
+          onInput={emit}
+          onPaste={uploadInlineImage ? handlePasteInlineImage : undefined}
+          onMouseUp={updateFormatState}
+          onKeyUp={updateFormatState}
+          onDragStart={handleEditorDragStart}
+          onDragEnd={handleEditorDragEnd}
+          onDragOver={handleEditorDragOver}
+          onDragEnter={handleEditorDragEnter}
+          onDrop={handleEditorDrop}
+          suppressContentEditableWarning
+        />
+      </div>
     </div>
   );
 }

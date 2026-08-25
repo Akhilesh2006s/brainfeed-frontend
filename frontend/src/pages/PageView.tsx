@@ -105,7 +105,7 @@ const PageView = () => {
         <section className="py-12 md:py-16">
           <div className="container">
             <div
-              className="max-w-3xl font-sans text-muted-foreground leading-relaxed prose prose-neutral dark:prose-invert [&_h2]:font-serif [&_h2]:text-xl [&_h2]:text-foreground [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_a]:text-accent [&_a]:underline"
+              className="max-w-3xl font-sans text-muted-foreground leading-relaxed prose prose-neutral dark:prose-invert [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:text-foreground [&_h1]:mt-7 [&_h1]:mb-3 [&_h1]:leading-tight [&_h2]:font-serif [&_h2]:text-xl [&_h2]:text-foreground [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:leading-tight [&_h3]:font-serif [&_h3]:text-lg [&_h3]:text-foreground [&_h3]:mt-5 [&_h3]:mb-2 [&_h3]:leading-snug [&_h4]:font-serif [&_h4]:text-base [&_h4]:text-foreground [&_h4]:mt-4 [&_h4]:mb-2 [&_h4]:leading-snug [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_a]:text-accent [&_a]:underline"
               dangerouslySetInnerHTML={{ __html: transformContentWithEmbeds(page.content) }}
             />
           </div>

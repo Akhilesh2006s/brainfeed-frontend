@@ -105,144 +105,148 @@ const AdminPageList = () => {
   };
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <FileText className="h-6 w-6 text-accent shrink-0" />
-        <h1 className="font-serif text-2xl text-foreground">All Pages</h1>
-      </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0">
+        <div className="mb-4 flex items-center gap-2">
+          <FileText className="h-6 w-6 shrink-0 text-accent" />
+          <h1 className="font-serif text-2xl text-foreground">All Pages</h1>
+        </div>
 
-      <div className="mb-6 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-          Filter by last updated
-        </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="space-y-1.5 w-full sm:w-44">
-            <Label htmlFor="page-filter-month" className="text-xs text-muted-foreground">
-              Month
-            </Label>
-            <Select value={filterMonth} onValueChange={setFilterMonth}>
-              <SelectTrigger id="page-filter-month" className="h-10">
-                <SelectValue placeholder="Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {MONTH_OPTIONS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="mb-4 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Filter by last updated
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="w-full space-y-1.5 sm:w-44">
+              <Label htmlFor="page-filter-month" className="text-xs text-muted-foreground">
+                Month
+              </Label>
+              <Select value={filterMonth} onValueChange={setFilterMonth}>
+                <SelectTrigger id="page-filter-month" className="h-10">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_OPTIONS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full space-y-1.5 sm:w-36">
+              <Label htmlFor="page-filter-year" className="text-xs text-muted-foreground">
+                Year
+              </Label>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger id="page-filter-year" className="h-10">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All years</SelectItem>
+                  {yearOptions.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {filtersActive && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 w-full shrink-0 sm:w-auto"
+                onClick={() => {
+                  setFilterYear("all");
+                  setFilterMonth("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
           </div>
-          <div className="space-y-1.5 w-full sm:w-36">
-            <Label htmlFor="page-filter-year" className="text-xs text-muted-foreground">
-              Year
-            </Label>
-            <Select value={filterYear} onValueChange={setFilterYear}>
-              <SelectTrigger id="page-filter-year" className="h-10">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All years</SelectItem>
-                {yearOptions.map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {filtersActive && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-10 w-full sm:w-auto shrink-0"
-              onClick={() => {
-                setFilterYear("all");
-                setFilterMonth("all");
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
         </div>
       </div>
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : pages.length === 0 ? (
-        <p className="text-muted-foreground py-8">No pages yet. Add one from the sidebar.</p>
+        <p className="py-8 text-muted-foreground">No pages yet. Add one from the sidebar.</p>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col">
           {filtersActive && (
-            <p className="text-xs text-muted-foreground mb-3">
+            <p className="mb-3 shrink-0 text-xs text-muted-foreground">
               Showing {filteredPages.length} of {pages.length} page{pages.length === 1 ? "" : "s"} (by updated date)
             </p>
           )}
-          <div className="rounded-lg border border-border/60 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border/60">
-                <tr>
-                  <th className="text-left p-3 font-medium">Title</th>
-                  <th className="text-left p-3 font-medium">Slug (URL)</th>
-                  <th className="text-left p-3 font-medium">Updated</th>
-                  <th className="text-right p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPages.length === 0 ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/60">
+            <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+              <table className="w-full border-separate border-spacing-0 text-sm">
+                <thead>
                   <tr>
-                    <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                      No pages match this month and year. Try different filters or{" "}
-                      <button
-                        type="button"
-                        className="text-accent underline underline-offset-2 font-medium"
-                        onClick={() => {
-                          setFilterYear("all");
-                          setFilterMonth("all");
-                        }}
-                      >
-                        clear filters
-                      </button>
-                      .
-                    </td>
+                    <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Title</th>
+                    <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Slug (URL)</th>
+                    <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Updated</th>
+                    <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-right font-medium">Actions</th>
                   </tr>
-                ) : (
-                  filteredPages.map((page) => (
-                    <tr key={page._id} className="border-b border-border/40 hover:bg-muted/30">
-                      <td className="p-3 font-medium max-w-[200px] truncate">{page.title}</td>
-                      <td className="p-3 text-muted-foreground font-mono text-xs">/{page.slug}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {page.updatedAt ? new Date(page.updatedAt).toLocaleDateString() : "—"}
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <a href={`/${page.slug}`} target="_blank" rel="noopener noreferrer">
-                            <Button variant="ghost" size="sm" className="h-8">
-                              View
-                            </Button>
-                          </a>
-                          <Link to={`/admin/pages/${page._id}/edit`}>
-                            <Button variant="ghost" size="sm" className="h-8">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(page._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                </thead>
+                <tbody>
+                  {filteredPages.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                        No pages match this month and year. Try different filters or{" "}
+                        <button
+                          type="button"
+                          className="font-medium text-accent underline underline-offset-2"
+                          onClick={() => {
+                            setFilterYear("all");
+                            setFilterMonth("all");
+                          }}
+                        >
+                          clear filters
+                        </button>
+                        .
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredPages.map((page) => (
+                      <tr key={page._id} className="hover:bg-muted/30">
+                        <td className="max-w-[200px] truncate border-b border-border/40 p-3 font-medium">{page.title}</td>
+                        <td className="border-b border-border/40 p-3 font-mono text-xs text-muted-foreground">/{page.slug}</td>
+                        <td className="border-b border-border/40 p-3 text-muted-foreground">
+                          {page.updatedAt ? new Date(page.updatedAt).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="border-b border-border/40 p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <a href={`/${page.slug}`} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="sm" className="h-8">
+                                View
+                              </Button>
+                            </a>
+                            <Link to={`/admin/pages/${page._id}/edit`}>
+                              <Button variant="ghost" size="sm" className="h-8">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(page._id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

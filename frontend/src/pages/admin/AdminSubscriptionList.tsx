@@ -20,6 +20,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CalendarIcon,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -846,7 +847,8 @@ const AdminSubscriptionList = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0 space-y-4 pb-4">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl text-foreground mb-1">Subscriptions overview</h1>
@@ -913,7 +915,7 @@ const AdminSubscriptionList = () => {
           {(dateFrom || dateTo) && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               className="h-9 text-xs"
               onClick={() => {
@@ -922,6 +924,7 @@ const AdminSubscriptionList = () => {
                 setPage(1);
               }}
             >
+              <X className="mr-1 h-3.5 w-3.5" />
               Clear dates
             </Button>
           )}
@@ -1011,10 +1014,11 @@ const AdminSubscriptionList = () => {
           </p>
         </div>
       </div>
+      </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-border/60 bg-card/70 overflow-hidden">
-        <div className="px-4 py-2 border-b border-border/60 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/70">
+        <div className="flex shrink-0 flex-col gap-1 border-b border-border/60 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-foreground">Orders</p>
           <p className="text-xs text-muted-foreground">
             {total === 0
@@ -1031,18 +1035,18 @@ const AdminSubscriptionList = () => {
             No subscriptions found yet. Once the checkout flow is connected, web orders will appear here.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 border-b border-border/60">
+          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+            <table className="w-full border-separate border-spacing-0 text-sm">
+              <thead>
                 <tr>
-                  <th className="text-left p-3 font-medium">Subscriber</th>
-                  <th className="text-left p-3 font-medium">Plan</th>
-                  <th className="text-left p-3 font-medium hidden md:table-cell">Payment</th>
-                  <th className="text-left p-3 font-medium hidden sm:table-cell">Created</th>
-                  <th className="text-left p-3 font-medium">Total</th>
-                  <th className="text-left p-3 font-medium hidden lg:table-cell">Status</th>
-                  <th className="text-center p-3 font-medium">Invoice</th>
-                  <th className="text-right p-3 font-medium">Update</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Subscriber</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Plan</th>
+                  <th className="sticky top-0 z-10 hidden border-b border-border/60 bg-muted p-3 text-left font-medium md:table-cell">Payment</th>
+                  <th className="sticky top-0 z-10 hidden border-b border-border/60 bg-muted p-3 text-left font-medium sm:table-cell">Created</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-left font-medium">Total</th>
+                  <th className="sticky top-0 z-10 hidden border-b border-border/60 bg-muted p-3 text-left font-medium lg:table-cell">Status</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-center font-medium">Invoice</th>
+                  <th className="sticky top-0 z-10 border-b border-border/60 bg-muted p-3 text-right font-medium">Update</th>
                 </tr>
               </thead>
               <tbody>
@@ -1050,8 +1054,8 @@ const AdminSubscriptionList = () => {
                   const cfg = statusMeta[s.status];
                   const Icon = cfg.Icon;
                   return (
-                    <tr key={s.id} className="border-b border-border/40 hover:bg-muted/20">
-                      <td className="p-3 align-top">
+                    <tr key={s.id} className="hover:bg-muted/20">
+                      <td className="border-b border-border/40 p-3 align-top">
                         <div className="text-sm font-medium text-foreground">
                           {s.userName || "—"}
                         </div>
@@ -1064,27 +1068,27 @@ const AdminSubscriptionList = () => {
                           </div>
                         )}
                       </td>
-                      <td className="p-3 align-top">
+                      <td className="border-b border-border/40 p-3 align-top">
                         <div className="text-sm font-medium text-foreground">
                           {s.planName}
                         </div>
                         {s.planType && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
+                          <div className="mt-0.5 text-xs text-muted-foreground">
                             {s.planType}
                           </div>
                         )}
                       </td>
-                      <td className="p-3 align-top hidden md:table-cell">
+                      <td className="hidden border-b border-border/40 p-3 align-top md:table-cell">
                         <div className="text-xs font-medium text-foreground">
                           {formatPaymentStatus(s.paymentStatus)}
                         </div>
                         {s.paymentMethod && (
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
                             Method: {s.paymentMethod}
                           </div>
                         )}
                       </td>
-                      <td className="p-3 align-top text-xs text-muted-foreground hidden sm:table-cell">
+                      <td className="hidden border-b border-border/40 p-3 align-top text-xs text-muted-foreground sm:table-cell">
                         {s.createdAt
                           ? new Date(s.createdAt).toLocaleDateString("en-IN", {
                               day: "numeric",
@@ -1093,10 +1097,10 @@ const AdminSubscriptionList = () => {
                             })
                           : "—"}
                       </td>
-                      <td className="p-3 align-top text-sm text-foreground">
+                      <td className="border-b border-border/40 p-3 align-top text-sm text-foreground">
                         {s.total ? formatCurrency(s.total, s.currency) : "—"}
                       </td>
-                      <td className="p-3 align-top hidden lg:table-cell">
+                      <td className="hidden border-b border-border/40 p-3 align-top lg:table-cell">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.16em] border ${cfg.tone}`}
                         >
@@ -1104,7 +1108,7 @@ const AdminSubscriptionList = () => {
                           {cfg.label}
                         </span>
                       </td>
-                      <td className="p-3 align-top text-center">
+                      <td className="border-b border-border/40 p-3 align-top text-center">
                         <Button
                           type="button"
                           variant="ghost"
@@ -1116,7 +1120,7 @@ const AdminSubscriptionList = () => {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </td>
-                      <td className="p-3 align-top text-right">
+                      <td className="border-b border-border/40 p-3 align-top text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Select
                             value={s.status}
@@ -1144,7 +1148,7 @@ const AdminSubscriptionList = () => {
           </div>
         )}
         {total > 0 && (
-          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               Page <span className="font-medium text-foreground">{page}</span> of{" "}
               <span className="font-medium text-foreground">{totalPages}</span>

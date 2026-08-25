@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { User, Mail, Newspaper, Package, CheckCircle2, Clock3, AlertCircle } from "lucide-react";
+import { User, Mail, Newspaper, Package, CheckCircle2, Clock3, AlertCircle, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
@@ -96,14 +96,21 @@ const statusConfig: Record<
 };
 
 const Profile = () => {
-  const { user, isLoading, updateProfile } = useAuth();
+  const { user, isLoading, updateProfile, changePassword, confirmPasswordChange } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [name, setName] = useState("");
   const [howDidYouHear, setHowDidYouHear] = useState("none");
   const [wantsUpdates, setWantsUpdates] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
+    if (searchParams.get("confirmPassword")) return;
     if (!isLoading && !user) {
       navigate("/", { replace: true });
       return;
@@ -113,7 +120,20 @@ const Profile = () => {
       setHowDidYouHear(user.howDidYouHear && user.howDidYouHear !== "none" ? user.howDidYouHear : "none");
       setWantsUpdates(user.wantsUpdates !== false);
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, navigate, searchParams]);
+
+  const confirmHandled = useRef(false);
+
+  useEffect(() => {
+    const token = searchParams.get("confirmPassword");
+    if (!token || confirmHandled.current) return;
+    confirmHandled.current = true;
+    confirmPasswordChange(token).then((result) => {
+      if (result.error) toast.error(result.error);
+      else toast.success(result.message || "Password updated.");
+      setSearchParams({}, { replace: true });
+    });
+  }, [searchParams, confirmPasswordChange, setSearchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +154,39 @@ const Profile = () => {
       return;
     }
     toast.success("Profile updated.");
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error("New password and confirmation do not match.");
+      return;
+    }
+    if (confirmEmail.trim().toLowerCase() !== user.email.toLowerCase()) {
+      toast.error("Enter your account email to confirm this change.");
+      return;
+    }
+    setSavingPassword(true);
+    const { error, message, pendingConfirmation } = await changePassword({
+      currentPassword,
+      newPassword,
+      confirmEmail: confirmEmail.trim(),
+    });
+    setSavingPassword(false);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setConfirmEmail("");
+    toast.success(message || (pendingConfirmation ? "Check your email to confirm." : "Password updated."));
   };
 
   if (isLoading || !user) {
@@ -187,6 +240,7 @@ const Profile = () => {
             </motion.div>
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
+              <div className="space-y-8">
               {/* Profile + preferences */}
               <motion.form
                 initial={{ opacity: 0, y: 16 }}
@@ -277,6 +331,99 @@ const Profile = () => {
                   {saving ? "Saving…" : "Save changes"}
                 </Button>
               </motion.form>
+
+              <motion.form
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.12 }}
+                onSubmit={handlePasswordSubmit}
+                className="rounded-2xl border border-border/60 bg-card/70 p-6 md:p-8 shadow-sm space-y-5"
+              >
+                <h2 className="font-serif text-xl md:text-2xl text-foreground mb-1">
+                  Change password
+                </h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Enter your current password, choose a new one, and confirm with your account email.
+                  We send a confirmation link to that inbox when mail is configured.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-current-password" className="text-foreground font-medium">
+                    Current password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="profile-current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="h-11 rounded-lg pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-new-password" className="text-foreground font-medium">
+                    New password
+                  </Label>
+                  <Input
+                    id="profile-new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-11 rounded-lg"
+                    minLength={6}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-confirm-password" className="text-foreground font-medium">
+                    Confirm new password
+                  </Label>
+                  <Input
+                    id="profile-confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="h-11 rounded-lg"
+                    minLength={6}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-confirm-email" className="text-foreground font-medium">
+                    Confirm email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="profile-confirm-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder={user.email}
+                      value={confirmEmail}
+                      onChange={(e) => setConfirmEmail(e.target.value)}
+                      className="h-11 rounded-lg pl-10"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Type {user.email} to confirm this change belongs to your account.
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={savingPassword}
+                  variant="outline"
+                  className="h-11 w-full rounded-lg font-semibold uppercase tracking-wider"
+                >
+                  {savingPassword ? "Updating…" : "Update password"}
+                </Button>
+              </motion.form>
+              </div>
 
               {/* Subscription overview */}
               <motion.div

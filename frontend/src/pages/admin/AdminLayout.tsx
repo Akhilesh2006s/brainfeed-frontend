@@ -9,25 +9,29 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const pathname = location.pathname;
+  const pathname = location.pathname.replace(/\/+$/, "") || "/";
 
-  const isNewsPostsActive = pathname === "/admin/posts" || pathname.startsWith("/admin/posts/");
   const isAddNewsActive = pathname === "/admin/posts/new";
-  const isPagesActive = pathname.startsWith("/admin/pages");
-  const isFlipbooksActive = pathname.startsWith("/admin/flipbooks");
-  const isSiteSettingsActive = pathname.startsWith("/admin/site-settings");
-  const isGalleryActive = pathname.startsWith("/admin/gallery");
-  const isSubscriptionsActive = pathname.startsWith("/admin/subscriptions");
+  const isNewsPostsActive =
+    pathname === "/admin/posts" || (pathname.startsWith("/admin/posts/") && !isAddNewsActive);
+  const isAddPageActive = pathname === "/admin/pages/new";
+  const isPagesActive =
+    pathname === "/admin/pages" || (pathname.startsWith("/admin/pages/") && !isAddPageActive);
+  const isAddFlipbookActive = pathname === "/admin/flipbooks/new";
+  const isFlipbooksActive =
+    pathname === "/admin/flipbooks" ||
+    (pathname.startsWith("/admin/flipbooks/") && !isAddFlipbookActive);
+  const isSiteSettingsActive = pathname === "/admin/site-settings";
+  const isGalleryActive = pathname === "/admin/gallery";
+  const isSubscriptionsActive = pathname === "/admin/subscriptions";
   const isProductsActive = pathname.startsWith("/admin/products");
-  const isUsersActive = pathname.startsWith("/admin/users");
-  const isSignupUsersActive = pathname.startsWith("/admin/signup-users");
-  const isNewsletterSubscribersActive = pathname.startsWith("/admin/newsletter-subscribers");
+  const isUsersActive = pathname === "/admin/users";
+  const isNewsletterSubscribersActive = pathname === "/admin/newsletter-subscribers";
 
   const baseNavClasses =
     "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors";
 
-  const inactiveClasses =
-    "text-muted-foreground hover:bg-accent/10 hover:text-accent";
+  const inactiveClasses = "text-muted-foreground hover:bg-muted/70 hover:text-foreground";
 
   const activeClasses = "bg-accent/10 text-accent";
 
@@ -61,7 +65,7 @@ const AdminLayout = () => {
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
           <Link
             to="/admin/posts?type=news"
-            className={`${baseNavClasses} ${isNewsPostsActive && !isAddNewsActive ? activeClasses : inactiveClasses}`}
+            className={`${baseNavClasses} ${isNewsPostsActive ? activeClasses : inactiveClasses}`}
           >
             <Newspaper className="h-4 w-4" />
             News posts
@@ -78,7 +82,7 @@ const AdminLayout = () => {
               </Link>
               <Link
                 to="/admin/pages/new"
-                className={`${baseNavClasses} ${isPagesActive ? activeClasses : inactiveClasses}`}
+                className={`${baseNavClasses} ${isAddPageActive ? activeClasses : inactiveClasses}`}
               >
                 <Plus className="h-4 w-4" />
                 Add Page
@@ -92,7 +96,7 @@ const AdminLayout = () => {
               </Link>
               <Link
                 to="/admin/flipbooks/new"
-                className={`${baseNavClasses} ${isFlipbooksActive ? activeClasses : inactiveClasses}`}
+                className={`${baseNavClasses} ${isAddFlipbookActive ? activeClasses : inactiveClasses}`}
               >
                 <Plus className="h-4 w-4" />
                 Add flipbook
@@ -183,8 +187,10 @@ const AdminLayout = () => {
           </div>
         </div>
       </aside>
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
-        <Outlet />
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
+        <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

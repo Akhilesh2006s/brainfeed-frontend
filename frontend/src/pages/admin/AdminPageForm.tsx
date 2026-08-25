@@ -232,11 +232,12 @@ const AdminPageForm = () => {
   }
 
   return (
-    <div>
-      <h1 className="font-serif text-2xl text-foreground mb-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <h1 className="mb-4 shrink-0 font-serif text-2xl text-foreground">
         {isEdit ? "Edit page" : "Add page"}
       </h1>
-      <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-none">
+      <form onSubmit={handleSubmit} className="flex min-h-0 w-full max-w-none flex-1 flex-col overflow-hidden">
+        <div className="max-h-[40vh] shrink-0 space-y-6 overflow-y-auto overscroll-contain">
         <div className="space-y-2">
           <Label>Page title</Label>
           <Input
@@ -355,17 +356,21 @@ const AdminPageForm = () => {
             className="h-11 w-24"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Content</Label>
-          <RichTextEditor
-            key={isEdit && id ? `page-${id}` : "new-page"}
-            variant="basic"
-            value={content}
-            onChange={setContent}
-            placeholder="Add content using the toolbar: headings, lists, links, etc. Paste a YouTube link on its own line to embed the video."
-            uploadInlineImage={uploadInlineImage}
-          />
-          <p className="text-xs text-muted-foreground">
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col space-y-2 pt-4">
+          <Label className="shrink-0">Content</Label>
+          <div className="min-h-0 flex-1">
+            <RichTextEditor
+              key={isEdit && id ? `page-${id}` : "new-page"}
+              variant="basic"
+              className="h-full min-h-0"
+              value={content}
+              onChange={setContent}
+              placeholder="Add content using the toolbar: headings, lists, links, etc. Paste a YouTube link on its own line to embed the video."
+              uploadInlineImage={uploadInlineImage}
+            />
+          </div>
+          <p className="shrink-0 text-xs text-muted-foreground">
             To embed a YouTube video, paste the video URL (for example
             {" "}
             <code>https://www.youtube.com/watch?v=...</code>
@@ -377,7 +382,7 @@ const AdminPageForm = () => {
             on its own line. It will be shown as an embedded video on the page.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex shrink-0 gap-3 border-t border-border/60 bg-background pt-4">
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : isEdit ? "Update page" : "Publish page"}
           </Button>

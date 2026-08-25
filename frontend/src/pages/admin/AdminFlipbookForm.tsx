@@ -5,8 +5,49 @@ import { buildApiUrl } from "@/lib/apiUrl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { BookOpen } from "lucide-react";
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+function parseIssueMonth(ym: string): { year: string; month: string } {
+  const [year, month] = ym.split("-");
+  const now = new Date();
+  return {
+    year: /^\d{4}$/.test(year || "") ? year : String(now.getFullYear()),
+    month: /^\d{2}$/.test(month || "") ? month : String(now.getMonth() + 1).padStart(2, "0"),
+  };
+}
+
+function issueYearOptions(currentYear: string): string[] {
+  const now = new Date().getFullYear();
+  const selected = Number(currentYear) || now;
+  const start = Math.min(now - 8, selected);
+  const end = Math.max(now + 2, selected);
+  const years: string[] = [];
+  for (let y = end; y >= start; y -= 1) years.push(String(y));
+  return years;
+}
 
 function slugFromTitle(title: string): string {
   return (
@@ -167,6 +208,8 @@ const AdminFlipbookForm = () => {
 
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
 
+  const { year: issueYear, month: issueMonthPart } = parseIssueMonth(issueMonth);
+
   return (
     <div className="max-w-xl">
       <div className="flex items-center gap-2 mb-6">
@@ -204,14 +247,39 @@ const AdminFlipbookForm = () => {
         </div>
         <div>
           <Label htmlFor="fb-issue-month">Issue month (E-magazines)</Label>
-          <Input
-            id="fb-issue-month"
-            type="month"
-            value={issueMonth}
-            onChange={(e) => setIssueMonth(e.target.value)}
-            className="mt-1.5 max-w-xs"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
+          <div className="mt-1.5 flex max-w-xs gap-2">
+            <Select
+              value={issueMonthPart}
+              onValueChange={(m) => setIssueMonth(`${issueYear}-${m}`)}
+            >
+              <SelectTrigger id="fb-issue-month" className="h-11 flex-1">
+                <SelectValue placeholder="Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_NAMES.map((name, i) => (
+                  <SelectItem key={name} value={String(i + 1).padStart(2, "0")}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={issueYear}
+              onValueChange={(y) => setIssueMonth(`${y}-${issueMonthPart}`)}
+            >
+              <SelectTrigger aria-label="Issue year" className="h-11 w-[6.75rem] shrink-0">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {issueYearOptions(issueYear).map((y) => (
+                  <SelectItem key={y} value={y}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
             Used to group this edition under the correct month on the public{" "}
             <a href="/e-magazines" className="text-accent underline underline-offset-2" target="_blank" rel="noreferrer">
               E-Magazines
