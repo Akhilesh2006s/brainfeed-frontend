@@ -455,3 +455,29 @@
     @apply text-muted-foreground;
   }
 }
+
+/* Hero photo — dissolve the left edge into the purple panel.
+   A mask fades the image itself, so the section's own gradient shows through
+   and there is no seam (an opaque overlay can never match a gradient behind it). */
+@media (min-width: 768px) {
+  .hero-photo-fade {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.05) 18%,
+      rgba(0, 0, 0, 0.28) 34%,
+      rgba(0, 0, 0, 0.7) 52%,
+      rgba(0, 0, 0, 0.94) 66%,
+      #000 78%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.05) 18%,
+      rgba(0, 0, 0, 0.28) 34%,
+      rgba(0, 0, 0, 0.7) 52%,
+      rgba(0, 0, 0, 0.94) 66%,
+      #000 78%
+    );
+  }
+}
