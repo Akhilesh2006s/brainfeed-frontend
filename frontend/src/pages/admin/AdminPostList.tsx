@@ -128,9 +128,16 @@ const AdminPostList = () => {
   const Icon = Newspaper;
 
   const filteredPosts =
-    activeCategory === "All"
+    (activeCategory === "All"
       ? posts
-      : posts.filter((p) => p.category === activeCategory);
+      : posts.filter((p) => p.category === activeCategory)
+    )
+      .slice()
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      });
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">

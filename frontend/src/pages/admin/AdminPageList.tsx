@@ -73,10 +73,14 @@ const AdminPageList = () => {
     return Array.from(years).sort((a, b) => b - a);
   }, [pages]);
 
-  const filteredPages = useMemo(
-    () => pages.filter((p) => pageMatchesDateFilter(p, filterYear, filterMonth)),
-    [pages, filterYear, filterMonth],
-  );
+  const filteredPages = useMemo(() => {
+    const matched = pages.filter((p) => pageMatchesDateFilter(p, filterYear, filterMonth));
+    return [...matched].sort((a, b) => {
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [pages, filterYear, filterMonth]);
 
   const filtersActive = filterYear !== "all" || filterMonth !== "all";
 
