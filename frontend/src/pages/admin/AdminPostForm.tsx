@@ -816,8 +816,12 @@ const AdminPostForm = () => {
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Article body</p>
                 <div className="news-article-body prose prose-sm sm:prose-base max-w-none text-foreground font-sans leading-relaxed">
                   <div
-                    className="[&_p]:my-4 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p:empty]:block [&_p:empty]:h-6 [&_h1]:mt-7 [&_h1]:mb-3 [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:mt-5 [&_h3]:mb-2 [&_h4]:mt-4 [&_h4]:mb-2 [&_ul]:my-4 [&_ol]:my-4 [&_li]:my-1 [&_blockquote]:my-4 [&_.editor-inline-figure]:my-6 [&_.editor-inline-img]:rounded-xl [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:max-w-full [&_.editor-inline-img]:w-full"
-                    dangerouslySetInnerHTML={{ __html: content }}
+                    className="[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:mt-6 [&_h1]:mb-1.5 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h3]:mt-4 [&_h3]:mb-1 [&_h4]:mt-3 [&_h4]:mb-1 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-0.5 [&_blockquote]:my-3 [&_.editor-inline-figure]:my-4 [&_.editor-inline-img]:rounded-xl [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:max-w-full [&_.editor-inline-img]:w-full"
+                    dangerouslySetInnerHTML={{
+                      __html: content
+                        .replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, "")
+                        .replace(/(<\/(?:h[1-4]|p)>)\s*(<(?:p|h[1-4]))/gi, "$1$2"),
+                    }}
                   />
                 </div>
               </div>

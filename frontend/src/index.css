@@ -160,6 +160,23 @@
     transform: translateY(-4px);
   }
 
+  /* Collapse empty / spacer paragraphs from the rich-text editor */
+  .news-article-body p:empty,
+  .news-article-body p:has(> br:only-child) {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+  }
+
+  .news-article-body h1 + p,
+  .news-article-body h2 + p,
+  .news-article-body h3 + p,
+  .news-article-body h4 + p,
+  .news-article-body p + p {
+    margin-top: 0.35rem;
+  }
+
   /* Inline news article images with position classes */
   .news-article-body .news-image {
     margin: 1.5rem 0;
