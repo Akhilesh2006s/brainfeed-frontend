@@ -473,7 +473,7 @@ function findFontSizeSpanForRange(range: Range, editor: HTMLElement): HTMLSpanEl
   return null;
 }
 
-const FONT_STEPS = [11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 28, 32, 36, 44] as const;
+const FONT_STEPS = [12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 42, 48] as const;
 
 function nearestStep(px: number): number {
   return FONT_STEPS.reduce((best, s, i, arr) =>
@@ -1191,13 +1191,14 @@ export function RichTextEditor({
       return;
     }
 
+    const currentPx = getFontSizePxAt(range, el);
+    const nextPx = nextFontSizePx(currentPx, direction);
+
+    // Fast path: whole selection is one existing size span — just bump the px.
     const fsSpan = findFontSizeSpanForRange(range, el);
     if (fsSpan && selectionCoversSpanText(range, fsSpan)) {
-      const currentPx = getPxFromFontSizeSpan(fsSpan);
-      const nextPx = nextFontSizePx(currentPx, direction);
       fsSpan.style.fontSize = `${nextPx}px`;
       fsSpan.setAttribute("data-editor-fs", String(nextPx));
-
       const newSel = window.getSelection();
       if (newSel) {
         newSel.removeAllRanges();
@@ -1206,40 +1207,81 @@ export function RichTextEditor({
         newSel.addRange(nr);
         savedRange.current = nr.cloneRange();
       }
-
       emit();
       requestAnimationFrame(() => updateFormatState());
       return;
     }
 
-    const currentPx = getFontSizePxAt(range, el);
-    const nextPx = nextFontSizePx(currentPx, direction);
-
-    const span = document.createElement("span");
-    span.style.fontSize = `${nextPx}px`;
-    span.setAttribute("data-editor-fs", String(nextPx));
-
+    // Reliable path across bold/links/paragraphs: browser splits <font size="7"> per block,
+    // then we convert those markers to pixel spans.
     try {
-      range.surroundContents(span);
+      document.execCommand("styleWithCSS", false, "false");
+      document.execCommand("fontSize", false, "7");
     } catch {
-      // Selection crosses element boundaries — wrap using extractContents (keeps structure inside fragment).
-      try {
-        const frag = range.extractContents();
-        span.appendChild(frag);
-        range.insertNode(span);
-      } catch {
-        toast.error("Could not resize this selection. Try a smaller selection.");
-        return;
-      }
+      toast.error("Could not resize this selection. Try selecting the text again.");
+      return;
     }
 
-    const newSel = window.getSelection();
-    if (newSel) {
-      newSel.removeAllRanges();
-      const nr = document.createRange();
-      nr.selectNodeContents(span);
-      newSel.addRange(nr);
-      savedRange.current = nr.cloneRange();
+    const markers: HTMLElement[] = Array.from(el.querySelectorAll('font[size="7"]'));
+    if (markers.length === 0) {
+      // Some browsers still emit CSS spans for fontSize even with styleWithCSS=false.
+      el.querySelectorAll('span[style*="font-size"]').forEach((node) => {
+        const span = node as HTMLElement;
+        const fs = (span.style.fontSize || "").toLowerCase();
+        if (
+          fs.includes("xxx-large") ||
+          fs.includes("xx-large") ||
+          fs === "7" ||
+          fs.includes("-webkit-xxx-large")
+        ) {
+          markers.push(span);
+        }
+      });
+    }
+
+    if (markers.length === 0) {
+      toast.error("Could not resize this selection. Try a smaller selection.");
+      return;
+    }
+
+    let firstSpan: HTMLElement | null = null;
+    let lastSpan: HTMLElement | null = null;
+
+    markers.forEach((marker) => {
+      const span = document.createElement("span");
+      span.style.fontSize = `${nextPx}px`;
+      span.setAttribute("data-editor-fs", String(nextPx));
+      while (marker.firstChild) span.appendChild(marker.firstChild);
+      marker.parentNode?.replaceChild(span, marker);
+      if (!firstSpan) firstSpan = span;
+      lastSpan = span;
+    });
+
+    // Unwrap nested size spans so repeated A+/A- keeps a single clear size.
+    el.querySelectorAll("span[data-editor-fs] span[data-editor-fs]").forEach((inner) => {
+      const child = inner as HTMLElement;
+      const parent = child.parentElement;
+      if (!parent || !parent.hasAttribute("data-editor-fs")) return;
+      parent.style.fontSize = child.style.fontSize;
+      parent.setAttribute("data-editor-fs", child.getAttribute("data-editor-fs") || "");
+      while (child.firstChild) parent.insertBefore(child.firstChild, child);
+      child.remove();
+    });
+
+    if (firstSpan && lastSpan) {
+      const newSel = window.getSelection();
+      if (newSel) {
+        newSel.removeAllRanges();
+        const nr = document.createRange();
+        nr.setStart(firstSpan, 0);
+        nr.setEndAfter(lastSpan.lastChild || lastSpan);
+        try {
+          newSel.addRange(nr);
+          savedRange.current = nr.cloneRange();
+        } catch {
+          /* ignore */
+        }
+      }
     }
 
     emit();

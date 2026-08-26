@@ -169,6 +169,12 @@
     height: 0 !important;
   }
 
+  /* Keep A+/A- sized spans readable; actual size comes from inline style */
+  .rich-editor-body span[data-editor-fs],
+  .news-article-body span[data-editor-fs] {
+    line-height: 1.35;
+  }
+
   .news-article-body h1 + p,
   .news-article-body h2 + p,
   .news-article-body h3 + p,
