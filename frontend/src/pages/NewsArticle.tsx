@@ -8,6 +8,7 @@ import { Calendar, Clock } from "lucide-react";
 import { buildNewsPath } from "@/lib/seo";
 import { getCategoryTheme, getCategoryPillClass } from "@/lib/categoryTheme";
 import { buildApiUrl } from "@/lib/apiUrl";
+import { sanitizeArticleHtml } from "@/lib/sanitizeArticleHtml";
 
 type NewsPost = {
   id: string;
@@ -249,9 +250,7 @@ const NewsArticle = () => {
                     <div
                       className="[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:mt-6 [&_h1]:mb-1.5 [&_h1]:text-[1.8rem] [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:text-[1.5rem] [&_h2]:font-semibold [&_h2]:leading-tight [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:text-[1.25rem] [&_h3]:font-semibold [&_h3]:leading-snug [&_h4]:mt-3 [&_h4]:mb-1 [&_h4]:text-[1.05rem] [&_h4]:font-semibold [&_h4]:leading-snug [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-0.5 [&_blockquote]:my-3 [&_.editor-inline-figure]:my-4 [&_.editor-inline-img]:rounded-xl [&_.editor-inline-img]:h-auto [&_.editor-inline-img]:max-w-full [&_.editor-inline-img]:w-full"
                       dangerouslySetInnerHTML={{
-                        __html: post.content
-                          .replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, "")
-                          .replace(/(<\/(?:h[1-4]|p)>)\s*(<(?:p|h[1-4]))/gi, "$1$2"),
+                        __html: sanitizeArticleHtml(post.content),
                       }}
                     />
                   ) : (

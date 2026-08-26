@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { sanitizeArticleHtml } from "@/lib/sanitizeArticleHtml";
 
 /** Snapshots the current selection when it is inside the editor (used before toolbar / menu interactions). */
 function captureEditorSelection(editor: HTMLElement | null, savedRange: MutableRefObject<Range | null>) {
@@ -473,7 +474,7 @@ function findFontSizeSpanForRange(range: Range, editor: HTMLElement): HTMLSpanEl
   return null;
 }
 
-const FONT_STEPS = [12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 42, 48] as const;
+const FONT_STEPS = [12, 14, 16, 18, 20, 22, 24, 28, 32] as const;
 
 function nearestStep(px: number): number {
   return FONT_STEPS.reduce((best, s, i, arr) =>
@@ -549,8 +550,14 @@ export function RichTextEditor({
   onChangeRef.current = onChange;
   const emit = () => {
     if (!ref.current) return;
+    let html = ref.current.innerHTML;
+    // Only rewrite DOM when dangerous font markers are present (avoids cursor jumps on normal typing).
+    if (/<font\b|xxx-large|xx-large|-webkit-xxx-large/i.test(html)) {
+      html = sanitizeArticleHtml(html);
+      if (html !== ref.current.innerHTML) ref.current.innerHTML = html;
+    }
     isInternal.current = true;
-    onChangeRef.current(ref.current.innerHTML);
+    onChangeRef.current(html);
   };
   const emitRef = useRef(emit);
   emitRef.current = emit;
@@ -617,7 +624,8 @@ export function RichTextEditor({
       isInternal.current = false;
       return;
     }
-    if (ref.current.innerHTML !== value) ref.current.innerHTML = value || "";
+    const next = sanitizeArticleHtml(value || "");
+    if (ref.current.innerHTML !== next) ref.current.innerHTML = next;
     /* Loaded/saved HTML: figures as draggable islands + − / + size controls */
     let structureChanged = false;
     ref.current.querySelectorAll("figure.editor-inline-figure").forEach((node) => {
@@ -634,7 +642,7 @@ export function RichTextEditor({
     });
     if (structureChanged) {
       isInternal.current = true;
-      onChangeRef.current(ref.current.innerHTML);
+      onChangeRef.current(sanitizeArticleHtml(ref.current.innerHTML));
     }
   }, [value]);
 
@@ -1212,8 +1220,8 @@ export function RichTextEditor({
       return;
     }
 
-    // Reliable path across bold/links/paragraphs: browser splits <font size="7"> per block,
-    // then we convert those markers to pixel spans.
+    // Marker approach: browser wraps selection in <font size="7">, then we convert
+    // those markers to pixel spans immediately so size="7" never remains in HTML.
     try {
       document.execCommand("styleWithCSS", false, "false");
       document.execCommand("fontSize", false, "7");
@@ -1222,24 +1230,24 @@ export function RichTextEditor({
       return;
     }
 
-    const markers: HTMLElement[] = Array.from(el.querySelectorAll('font[size="7"]'));
-    if (markers.length === 0) {
-      // Some browsers still emit CSS spans for fontSize even with styleWithCSS=false.
-      el.querySelectorAll('span[style*="font-size"]').forEach((node) => {
-        const span = node as HTMLElement;
-        const fs = (span.style.fontSize || "").toLowerCase();
-        if (
-          fs.includes("xxx-large") ||
-          fs.includes("xx-large") ||
-          fs === "7" ||
-          fs.includes("-webkit-xxx-large")
-        ) {
-          markers.push(span);
-        }
-      });
-    }
+    const markers: HTMLElement[] = Array.from(el.querySelectorAll("font[size='7'], font[size=\"7\"]"));
+
+    // Chrome may emit huge named sizes instead of <font>
+    el.querySelectorAll("span[style*='font-size'], span[style*=\"font-size\"]").forEach((node) => {
+      const span = node as HTMLElement;
+      const fs = (span.style.fontSize || "").toLowerCase();
+      if (
+        fs.includes("xxx-large") ||
+        fs.includes("xx-large") ||
+        fs.includes("-webkit-xxx-large")
+      ) {
+        markers.push(span);
+      }
+    });
 
     if (markers.length === 0) {
+      // Last resort: sanitize whatever execCommand left behind, then stop.
+      emit();
       toast.error("Could not resize this selection. Try a smaller selection.");
       return;
     }
@@ -1257,13 +1265,13 @@ export function RichTextEditor({
       lastSpan = span;
     });
 
-    // Unwrap nested size spans so repeated A+/A- keeps a single clear size.
+    // Flatten nested size spans from repeated A+/A-
     el.querySelectorAll("span[data-editor-fs] span[data-editor-fs]").forEach((inner) => {
       const child = inner as HTMLElement;
       const parent = child.parentElement;
-      if (!parent || !parent.hasAttribute("data-editor-fs")) return;
+      if (!parent?.hasAttribute("data-editor-fs")) return;
       parent.style.fontSize = child.style.fontSize;
-      parent.setAttribute("data-editor-fs", child.getAttribute("data-editor-fs") || "");
+      parent.setAttribute("data-editor-fs", child.getAttribute("data-editor-fs") || String(nextPx));
       while (child.firstChild) parent.insertBefore(child.firstChild, child);
       child.remove();
     });
@@ -1273,9 +1281,9 @@ export function RichTextEditor({
       if (newSel) {
         newSel.removeAllRanges();
         const nr = document.createRange();
-        nr.setStart(firstSpan, 0);
-        nr.setEndAfter(lastSpan.lastChild || lastSpan);
         try {
+          nr.setStartBefore(firstSpan);
+          nr.setEndAfter(lastSpan);
           newSel.addRange(nr);
           savedRange.current = nr.cloneRange();
         } catch {

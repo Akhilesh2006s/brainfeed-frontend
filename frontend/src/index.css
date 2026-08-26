@@ -175,6 +175,20 @@
     line-height: 1.35;
   }
 
+  /* Safety net: never let leftover editor markers explode body text */
+  .news-article-body font,
+  .rich-editor-body font {
+    font-size: 1em !important;
+  }
+  .news-article-body span[style*="xxx-large"],
+  .news-article-body span[style*="xx-large"],
+  .news-article-body span[style*="-webkit-xxx-large"],
+  .rich-editor-body span[style*="xxx-large"],
+  .rich-editor-body span[style*="xx-large"],
+  .rich-editor-body span[style*="-webkit-xxx-large"] {
+    font-size: 1em !important;
+  }
+
   .news-article-body h1 + p,
   .news-article-body h2 + p,
   .news-article-body h3 + p,
