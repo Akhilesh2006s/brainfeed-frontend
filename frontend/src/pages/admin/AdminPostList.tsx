@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 const NEWS_CATEGORIES = [
   "All",
   "Achievement",
+  "Editor's Pick",
   "Press Release",
   "Career",
   "Education",

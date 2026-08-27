@@ -15,6 +15,7 @@ const newsCategorySlugToLabel: Record<string, string> = {
   parenting: "Parenting",
   technology: "Technology",
   "expert-view": "Expert View",
+  "editors-pick": "Editor's Pick",
   "press-release": "Press Release",
 };
 
@@ -31,6 +32,7 @@ const newsCategories = [
   "Policy",
   "Parenting",
   "Expert View",
+  "Editor's Pick",
   "Technology",
   "Press Release",
 ];

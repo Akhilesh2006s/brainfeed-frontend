@@ -15,6 +15,7 @@ import { sanitizeArticleHtml } from "@/lib/sanitizeArticleHtml";
 
 const NEWS_CATEGORIES = [
   "Achievement",
+  "Editor's Pick",
   "Press Release",
   "Career",
   "Education",

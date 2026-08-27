@@ -90,7 +90,10 @@ const Index = () => {
     homeLayout?.parentingIds,
     articles.filter((a) => a.category === "Parenting")
   );
-  const editorPicks = pickByIds(homeLayout?.editorsPickIds, articles);
+  const editorPicks = pickByIds(
+    homeLayout?.editorsPickIds,
+    articles.filter((a) => a.category === "Editor's Pick")
+  );
   return (
     <div className="min-h-screen bg-background">
       <TopBar />
