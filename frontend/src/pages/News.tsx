@@ -130,7 +130,7 @@ const News = () => {
       <Header />
 
       <main>
-        <section className="relative py-16 md:py-24 lg:py-28 overflow-hidden border-b border-border/60">
+        <section className="relative py-8 md:py-10 lg:py-12 overflow-hidden border-b border-border/60">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
           <div className="container relative z-10">
             <motion.div
