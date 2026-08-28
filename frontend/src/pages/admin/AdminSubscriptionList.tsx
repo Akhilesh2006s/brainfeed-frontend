@@ -371,7 +371,7 @@ const AdminSubscriptionList = () => {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [summary, setSummary] = useState<SubscriptionListSummary>(emptySummary);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -847,7 +847,7 @@ const AdminSubscriptionList = () => {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-full flex-col">
       <div className="shrink-0 space-y-4 pb-4">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
@@ -950,7 +950,7 @@ const AdminSubscriptionList = () => {
           <Select
             value={String(pageSize)}
             onValueChange={(v) => {
-              setPageSize(Number(v) || 25);
+              setPageSize(Number(v) || 10);
               setPage(1);
             }}
           >
@@ -1017,7 +1017,7 @@ const AdminSubscriptionList = () => {
       </div>
 
       {/* Table */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/70">
+      <div className="flex flex-col rounded-xl border border-border/60 bg-card/70">
         <div className="flex shrink-0 flex-col gap-1 border-b border-border/60 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-foreground">Orders</p>
           <p className="text-xs text-muted-foreground">
@@ -1035,7 +1035,7 @@ const AdminSubscriptionList = () => {
             No subscriptions found yet. Once the checkout flow is connected, web orders will appear here.
           </p>
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+          <div className="overflow-x-auto">
             <table className="w-full border-separate border-spacing-0 text-sm">
               <thead>
                 <tr>
