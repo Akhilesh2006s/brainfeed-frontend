@@ -61,19 +61,10 @@ const EMagazines = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const byMonth = useMemo(() => {
-    const map = new Map<string, FlipbookListItem[]>();
-    for (const item of items) {
-      const key = monthKeyFromItem(item);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-    for (const arr of map.values()) {
-      arr.sort((a, b) => sortTime(b) - sortTime(a));
-    }
-    const keys = [...map.keys()].sort((a, b) => b.localeCompare(a));
-    return keys.map((key) => ({ key, label: formatMonthHeading(key), items: map.get(key)! }));
-  }, [items]);
+  const sortedItems = useMemo(
+    () => [...items].sort((a, b) => sortTime(b) - sortTime(a)),
+    [items],
+  );
 
   const flipbookHref = (slug: string) => `/flipbook/${encodeURIComponent(slug)}`;
 
@@ -99,16 +90,14 @@ const EMagazines = () => {
             No e-magazines are published yet. Admins can add PDF flipbooks in the admin panel.
           </p>
         ) : (
-          <div className="space-y-12 md:space-y-14">
-            {byMonth.map(({ key, label, items: group }) => (
-              <section key={key} aria-labelledby={`month-${key}`}>
-                <h2 id={`month-${key}`} className="font-serif text-xl md:text-2xl text-foreground mb-6 pb-2 border-b border-border/60">
-                  {label}
-                </h2>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
-                  {group.map((item) => (
-                    <li key={item.slug}>
-                      <ScrollReveal>
+          <section aria-labelledby="latest-magazines">
+            <h2 id="latest-magazines" className="font-serif text-xl md:text-2xl text-foreground mb-6 pb-2 border-b border-border/60">
+              Latest Magazines
+            </h2>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+                  {sortedItems.map((item) => (
+                    <li key={item.slug} className="flex">
+                      <ScrollReveal className="h-full w-full">
                         <article className="rounded-2xl border border-border/60 bg-card/50 overflow-hidden h-full flex flex-col shadow-sm hover:shadow-md hover:border-accent/30 transition-all">
                           <div className="relative aspect-[3/4] bg-muted/60">
                             {item.coverImageUrl ? (
@@ -147,7 +136,9 @@ const EMagazines = () => {
                                 <h3 className="font-serif text-lg md:text-xl text-foreground leading-snug line-clamp-3">
                                   {item.title}
                                 </h3>
-                                <p className="text-xs text-muted-foreground mt-1">Digital flipbook edition</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatMonthHeading(monthKeyFromItem(item))} · Digital flipbook edition
+                                </p>
                               </div>
                             </div>
                             <div className="mt-auto pt-2">
@@ -163,10 +154,8 @@ const EMagazines = () => {
                       </ScrollReveal>
                     </li>
                   ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+            </ul>
+          </section>
         )}
 
         <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>
