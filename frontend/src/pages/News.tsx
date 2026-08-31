@@ -41,6 +41,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 type NewsArticle = {
   id: number | string;
+  slug?: string;
   image?: string;
   imageUrl?: string;
   imageAlt?: string;
@@ -230,7 +231,7 @@ const News = () => {
                       className="mb-12 md:mb-16"
                     >
                       <Link
-                        to={buildNewsPath(featuredArticle.title, featuredArticle.id)}
+                        to={buildNewsPath(featuredArticle.title, featuredArticle.id, featuredArticle.slug)}
                         className="group block rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-xl hover:border-accent/30 transition-all duration-300"
                       >
                         <div className="grid md:grid-cols-2 gap-0">
@@ -305,7 +306,7 @@ const News = () => {
                         className="group"
                       >
                         <Link
-                          to={buildNewsPath(post.title, post.id)}
+                          to={buildNewsPath(post.title, post.id, post.slug)}
                           className="block h-full rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-lg hover:border-accent/30 transition-all duration-300"
                         >
                           <div className="relative overflow-hidden aspect-[16/10] bg-muted/40">

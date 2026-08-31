@@ -5,6 +5,7 @@ import { getCategoryTheme } from "@/lib/categoryTheme";
 
 interface CategoryArticle {
   id: string | number;
+  slug?: string;
   image?: string;
   title: string;
   excerpt?: string;
@@ -38,7 +39,7 @@ const CategorySection = ({ title, articles }: CategorySectionProps) => {
           {/* Featured story with image */}
           <ScrollReveal direction="up">
             <Link
-              to={buildNewsPath(featured.title, featured.id)}
+              to={buildNewsPath(featured.title, featured.id, featured.slug)}
               className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
             >
               <article className="glass-card overflow-hidden flex flex-col h-full">
@@ -96,7 +97,7 @@ const CategorySection = ({ title, articles }: CategorySectionProps) => {
               return (
                 <ScrollReveal key={article.title} delay={0.05 * index} direction="up">
                   <Link
-                    to={buildNewsPath(article.title, article.id)}
+                    to={buildNewsPath(article.title, article.id, article.slug)}
                     className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
                   >
                     <article className="glass-card flex gap-3 md:gap-4 p-3 sm:p-3.5 md:p-4 min-h-[72px] sm:min-h-0">

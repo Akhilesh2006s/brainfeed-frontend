@@ -13,6 +13,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 type BlogPost = {
   id: number | string;
+  slug?: string;
   image?: string;
   imageUrl?: string;
   title: string;
@@ -204,7 +205,7 @@ const Blog = () => {
                       className="mb-12 md:mb-16"
                     >
                       <Link
-                        to={buildNewsPath(featuredPost.title, featuredPost.id)}
+                        to={buildNewsPath(featuredPost.title, featuredPost.id, featuredPost.slug)}
                         className="group block rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-xl hover:border-accent/30 transition-all duration-300 p-6 sm:p-8 md:p-10"
                       >
                         <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider mb-3 ${getCategoryPillClass(featuredPost.category || "")}`}>
@@ -268,7 +269,7 @@ const Blog = () => {
                       className="group"
                     >
                       <Link
-                        to={buildNewsPath(post.title, post.id)}
+                        to={buildNewsPath(post.title, post.id, post.slug)}
                         className="block h-full rounded-2xl overflow-hidden bg-card border border-border/50 shadow-sm hover:shadow-lg hover:border-accent/30 transition-all duration-300 p-5 sm:p-6"
                       >
                         <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider mb-2 ${getCategoryPillClass(post.category || "")}`}>

@@ -13,6 +13,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 type NewsArticle = {
   id: string | number;
+  slug?: string;
   imageUrl?: string;
   title: string;
   subtitle?: string;
@@ -60,6 +61,7 @@ const Index = () => {
 
   const toCategoryArticle = (a: NewsArticle) => ({
     id: a.id,
+    slug: a.slug,
     image: a.imageUrl,
     title: a.title,
     excerpt: String(a.subtitle || "").trim() || a.excerpt,

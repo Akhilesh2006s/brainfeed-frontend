@@ -28,6 +28,7 @@ const NEWS_CATEGORIES = [
 
 type Post = {
   _id: string;
+  slug?: string;
   type: string;
   title: string;
   category: string;
@@ -361,7 +362,7 @@ const AdminPostList = () => {
                         <div className="flex items-center justify-end gap-2">
                           {post.status !== "draft" ? (
                             <Link
-                              to={buildNewsPath(post.title, post._id)}
+                              to={buildNewsPath(post.title, post._id, post.slug)}
                               target="_blank"
                               rel="noopener noreferrer"
                             >

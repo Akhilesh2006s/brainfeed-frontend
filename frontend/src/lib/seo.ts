@@ -55,8 +55,9 @@ export function createSeoSlug(input: string, maxWords = 6): string {
   return encodeURIComponent(selected.join("-").replace(/-+/g, "-").replace(/^-|-$/g, ""));
 }
 
-export function buildNewsPath(title: string, id: string | number): string {
-  return `/news/${createSeoSlug(title)}/${id}`;
+export function buildNewsPath(title: string, id?: string | number, slug?: string): string {
+  const cleanSlug = String(slug || "").trim();
+  return `/news/${cleanSlug || createSeoSlug(title, 100)}`;
 }
 
 export function removeTrackingParams(params: URLSearchParams): URLSearchParams {

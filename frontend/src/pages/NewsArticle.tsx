@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -12,6 +12,7 @@ import { sanitizeArticleHtml } from "@/lib/sanitizeArticleHtml";
 
 type NewsPost = {
   id: string;
+  slug: string;
   title: string;
   subtitle?: string;
   content?: string;
@@ -30,6 +31,7 @@ type NewsPost = {
 
 type NewsSummary = {
   id: string | number;
+  slug?: string;
   title: string;
   date: string;
   category?: string;
@@ -47,17 +49,19 @@ const formatDate = (iso?: string) => {
 };
 
 const NewsArticle = () => {
-  const { id } = useParams<{ id: string }>();
+  const { slug, id } = useParams<{ slug: string; id?: string }>();
+  const navigate = useNavigate();
+  const identifier = id || slug;
   const [post, setPost] = useState<NewsPost | null>(null);
   const [latest, setLatest] = useState<NewsSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!identifier) return;
     setLoading(true);
     setNotFound(false);
-    fetch(buildApiUrl(`/posts/news/${id}`), { cache: "no-store" })
+    fetch(buildApiUrl(`/posts/news/${encodeURIComponent(identifier)}`), { cache: "no-store" })
       .then(async (res) => {
         if (res.status === 404) {
           setNotFound(true);
@@ -69,13 +73,17 @@ const NewsArticle = () => {
         return (await res.json()) as NewsPost;
       })
       .then((data) => {
-        if (data) setPost(data);
+        if (data) {
+          setPost(data);
+          const cleanPath = buildNewsPath(data.title, data.id, data.slug);
+          if (window.location.pathname !== cleanPath) navigate(cleanPath, { replace: true });
+        }
       })
       .catch(() => {
         setNotFound(true);
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [identifier, navigate]);
 
   useEffect(() => {
     if (!post) return;
@@ -140,7 +148,7 @@ const NewsArticle = () => {
       .then((data: any[]) => {
         const items = (Array.isArray(data) ? data : [])
           .slice(0, 5)
-          .map((a) => ({ id: a.id, title: a.title, date: a.date, category: a.category })) as NewsSummary[];
+          .map((a) => ({ id: a.id, slug: a.slug, title: a.title, date: a.date, category: a.category })) as NewsSummary[];
         setLatest(items);
       })
       .catch(() => setLatest([]));
@@ -283,7 +291,7 @@ const NewsArticle = () => {
                             </span>
                           )}
                           <Link
-                            to={buildNewsPath(item.title, item.id)}
+                            to={buildNewsPath(item.title, item.id, item.slug)}
                             className="block text-foreground hover:text-accent leading-snug"
                           >
                             {item.title}

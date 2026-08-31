@@ -8,6 +8,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 type NewsArticle = {
   id: string | number;
+  slug?: string;
   imageUrl?: string;
   imageAlt?: string;
   title: string;
@@ -81,7 +82,7 @@ const LatestNews = ({ articles: articlesProp, featuredId, sideIds }: LatestNewsP
           {/* Featured story with image */}
           <ScrollReveal direction="up">
             <Link
-              to={buildNewsPath(featured.title, featured.id)}
+              to={buildNewsPath(featured.title, featured.id, featured.slug)}
               className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
             >
               <article className="glass-card overflow-hidden flex flex-col h-full transition-transform duration-300 group-hover:-translate-y-0.5">
@@ -136,7 +137,7 @@ const LatestNews = ({ articles: articlesProp, featuredId, sideIds }: LatestNewsP
               return (
               <ScrollReveal key={article.title} delay={0.05 * index} direction="up">
                 <Link
-                  to={buildNewsPath(article.title, article.id)}
+                  to={buildNewsPath(article.title, article.id, article.slug)}
                   className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
                 >
                   <article className="glass-card flex gap-3 md:gap-4 p-3 sm:p-3.5 md:p-4 min-h-[72px] sm:min-h-0 transition-transform duration-300 group-hover:-translate-y-0.5">
