@@ -8,6 +8,7 @@ import { Search, Calendar, ArrowRight, Newspaper } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { buildNewsPath } from "@/lib/seo";
 import { getCategoryTheme as getNewsCategoryTheme } from "@/lib/categoryTheme";
+import { buildApiUrl } from "@/lib/apiUrl";
 
 const newsCategorySlugToLabel: Record<string, string> = {
   education: "Education",
@@ -37,7 +38,7 @@ const newsCategories = [
   "Press Release",
 ];
 
-const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
+const NEWS_CACHE_KEY = "brainfeed:news-articles:v1";
 
 type NewsArticle = {
   id: number | string;
@@ -58,6 +59,17 @@ function getArticleImageSrc(article: NewsArticle): string {
   return "";
 }
 
+function readCachedArticles(): NewsArticle[] {
+  try {
+    const cached = localStorage.getItem(NEWS_CACHE_KEY);
+    if (!cached) return [];
+    const parsed = JSON.parse(cached);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 const News = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get("category");
@@ -67,7 +79,10 @@ const News = () => {
       : "All";
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState("");
-  const [apiArticles, setApiArticles] = useState<NewsArticle[]>([]);
+  const [apiArticles, setApiArticles] = useState<NewsArticle[]>(readCachedArticles);
+  const [isLoading, setIsLoading] = useState(() => readCachedArticles().length === 0);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -95,11 +110,30 @@ const News = () => {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/articles`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: NewsArticle[]) => setApiArticles(Array.isArray(data) ? data : []))
-      .catch(() => setApiArticles([]));
-  }, []);
+    const controller = new AbortController();
+    setLoadError(false);
+    if (apiArticles.length === 0) setIsLoading(true);
+
+    fetch(buildApiUrl("/articles"), { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Articles request failed (${res.status})`);
+        return res.json();
+      })
+      .then((data: NewsArticle[]) => {
+        if (!Array.isArray(data)) throw new Error("Invalid articles response");
+        setApiArticles(data);
+        localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(data));
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [reloadKey]);
 
   useEffect(() => {
     if (categoryFromUrl && newsCategorySlugToLabel[categoryFromUrl]) {
@@ -211,7 +245,45 @@ const News = () => {
         <section className="py-12 md:py-16">
           <div className="container">
             <AnimatePresence mode="wait">
-              {filteredArticles.length === 0 ? (
+              {isLoading && apiArticles.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4"
+                  aria-live="polite"
+                  aria-label="Loading news articles"
+                >
+                  {[0, 1].map((item) => (
+                    <div key={item} className="overflow-hidden rounded-2xl border border-border/50 bg-card">
+                      <div className="aspect-[16/8] animate-pulse bg-muted" />
+                      <div className="space-y-3 p-6">
+                        <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                        <div className="h-7 w-5/6 animate-pulse rounded bg-muted" />
+                        <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                      </div>
+                    </div>
+                  ))}
+                  <p className="col-span-full text-center text-sm text-muted-foreground">
+                    Loading the latest news…
+                  </p>
+                </motion.div>
+              ) : loadError && apiArticles.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="py-16 text-center"
+                  role="alert"
+                >
+                  <p className="text-muted-foreground">News is taking longer than expected to load.</p>
+                  <button
+                    type="button"
+                    onClick={() => setReloadKey((key) => key + 1)}
+                    className="mt-4 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+                  >
+                    Try again
+                  </button>
+                </motion.div>
+              ) : filteredArticles.length === 0 ? (
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}

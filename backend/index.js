@@ -2633,10 +2633,16 @@ app.get("/api/posts/blogs/:id", async (req, res) => {
 
 app.get("/api/articles", async (req, res) => {
   try {
-    const posts = await Post.find({ type: "news", ...nonDraftPostFilter() }).sort({ createdAt: -1 }).lean();
+    // List cards do not use the potentially large rich-text content/media fields.
+    // Project only the required fields so MongoDB transfers much less data.
+    const posts = await Post.find({ type: "news", ...nonDraftPostFilter() })
+      .select("slug featuredImageUrl featuredImageAlt title subtitle excerpt createdAt category readTime")
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(
       posts.map((p) => ({
         id: p._id.toString(),
+        slug: p.slug,
         imageUrl: p.featuredImageUrl,
         imageAlt: p.featuredImageAlt || "",
         title: p.title,
