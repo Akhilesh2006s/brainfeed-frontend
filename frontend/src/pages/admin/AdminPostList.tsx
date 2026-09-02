@@ -26,6 +26,8 @@ const NEWS_CATEGORIES = [
   "Expert View",
 ];
 
+const ADMIN_POSTS_CACHE_KEY = "brainfeed:admin-news-list:v1";
+
 type Post = {
   _id: string;
   slug?: string;
@@ -40,6 +42,17 @@ type Post = {
     email?: string;
   };
 };
+
+function readCachedPosts(): Post[] {
+  try {
+    const value = sessionStorage.getItem(ADMIN_POSTS_CACHE_KEY);
+    if (!value) return [];
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function formatListDate(d: Date) {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "numeric", year: "numeric" });
@@ -76,8 +89,8 @@ function formatRangeLabel(range: DateRange | undefined) {
 }
 
 const AdminPostList = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<Post[]>(readCachedPosts);
+  const [loading, setLoading] = useState(() => readCachedPosts().length === 0);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   /** all | published | draft — drafts are hidden from the public site */
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
@@ -90,7 +103,15 @@ const AdminPostList = () => {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
+    const controller = new AbortController();
+    const isDefaultList = statusFilter === "all" && !dateRangeApplied?.from;
+    const cachedDefaultPosts = isDefaultList ? readCachedPosts() : [];
+    if (cachedDefaultPosts.length > 0) {
+      setPosts(cachedDefaultPosts);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     const qs = new URLSearchParams();
     qs.set("type", "news");
     if (statusFilter !== "all") {
@@ -103,13 +124,30 @@ const AdminPostList = () => {
     }
 
     const url = buildApiUrl(`/admin/posts?${qs.toString()}`);
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        setPosts(Array.isArray(data) ? data : []);
+    fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Posts request failed (${res.status})`);
+        return res.json();
       })
-      .catch(() => setPosts([]))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        const nextPosts = Array.isArray(data) ? data : [];
+        setPosts(nextPosts);
+        if (isDefaultList) {
+          sessionStorage.setItem(ADMIN_POSTS_CACHE_KEY, JSON.stringify(nextPosts));
+        }
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        toast.error("Posts are taking longer than expected. Please try again.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [token, dateRangeApplied, statusFilter]);
 
   const handleDelete = async (id: string) => {
@@ -120,7 +158,11 @@ const AdminPostList = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to delete");
-      setPosts((prev) => prev.filter((p) => p._id !== id));
+      setPosts((prev) => {
+        const nextPosts = prev.filter((p) => p._id !== id);
+        sessionStorage.setItem(ADMIN_POSTS_CACHE_KEY, JSON.stringify(nextPosts));
+        return nextPosts;
+      });
       toast.success("Post deleted.");
     } catch {
       toast.error("Failed to delete post.");

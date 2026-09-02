@@ -1791,7 +1791,12 @@ app.get("/api/admin/posts", adminAuthMiddleware, async (req, res) => {
         };
       }
     }
-    const posts = await Post.find(filter).sort({ createdAt: -1 }).lean();
+    // The admin table only needs summary fields. Excluding article bodies and
+    // media prevents the list response from growing with every rich-text post.
+    const posts = await Post.find(filter)
+      .select("slug type title category views createdAt status publishedBy.name publishedBy.email")
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(posts);
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to load posts" });
